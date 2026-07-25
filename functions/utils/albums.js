@@ -104,6 +104,12 @@ export async function createAlbum(env, name) {
   const normalizedName = normalizeAlbumName(name);
   if (!normalizedName) throw new Error('Tên album không được để trống.');
 
+  const nameKey = normalizedName.toLocaleLowerCase('vi');
+  const duplicate = (await listAlbums(env)).find(album =>
+    normalizeAlbumName(album.name).toLocaleLowerCase('vi') === nameKey
+  );
+  if (duplicate) throw new Error(`Album “${duplicate.name}” đã tồn tại.`);
+
   const base = sanitizeAlbumId(normalizedName);
   let id = base;
   let counter = 2;
@@ -125,6 +131,12 @@ export async function renameAlbum(env, albumId, name) {
 
   const normalizedName = normalizeAlbumName(name);
   if (!normalizedName) throw new Error('Tên album không được để trống.');
+
+  const nameKey = normalizedName.toLocaleLowerCase('vi');
+  const duplicate = (await listAlbums(env)).find(album =>
+    album.id !== id && normalizeAlbumName(album.name).toLocaleLowerCase('vi') === nameKey
+  );
+  if (duplicate) throw new Error(`Đã có album tên “${duplicate.name}”.`);
 
   const updated = { ...current, name: normalizedName, updatedAt: Date.now() };
   await putAlbum(env, updated);

@@ -988,7 +988,7 @@
 
       <div class="stats">
         <div class="stat"><strong id="statTotal">0</strong><span>Bản ghi đã tải</span></div>
-        <div class="stat"><strong id="statNeutral">0</strong><span>Trạng thái bình thường</span></div>
+        <div class="stat"><strong id="statNeutral">0</strong><span>Không gắn nhãn</span></div>
         <div class="stat"><strong id="statWhite">0</strong><span>Danh sách trắng</span></div>
         <div class="stat"><strong id="statBlock">0</strong><span>Danh sách đen</span></div>
       </div>
@@ -1026,7 +1026,7 @@
 
       <div class="segmented" aria-label="Bộ lọc">
         <button class="segment is-active" data-filter="all" type="button">Tất cả</button>
-        <button class="segment" data-filter="none" type="button">Bình thường</button>
+        <button class="segment" data-filter="none" type="button">Không gắn nhãn</button>
         <button class="segment" data-filter="white" type="button">Danh sách trắng</button>
         <button class="segment" data-filter="block" type="button">Danh sách đen</button>
       </div>
@@ -1046,7 +1046,7 @@
     </section>
 
     <div class="notice" id="notice"></div>
-    <section class="empty" id="emptyState">Chưa có file phù hợp với bộ lọc hiện tại.</section>
+    <section class="empty" id="emptyState">Chưa có ảnh.</section>
     <section class="grid" id="fileGrid" aria-live="polite"></section>
 
     <div class="load-more">
@@ -1093,6 +1093,8 @@
 
       const AUTH_KEY = "bbcAdminBasicAuth";
       const PENDING_ALBUMS_KEY = "bbcPendingAlbums";
+      const DELETED_ALBUMS_KEY = "bbcDeletedAlbums";
+      const DELETED_ALBUM_TTL = 120000;
       const PAGE_SIZE = 24;
       const state = {
         files: [],
@@ -1171,6 +1173,39 @@
         sessionStorage.setItem(PENDING_ALBUMS_KEY, JSON.stringify(albums.slice(0, 100)));
       }
 
+      function readDeletedAlbums() {
+        const now = Date.now();
+        try {
+          const value = JSON.parse(sessionStorage.getItem(DELETED_ALBUMS_KEY) || "[]");
+          const cleaned = Array.isArray(value)
+            ? value.filter(item => item?.id && now - Number(item.deletedAt || 0) < DELETED_ALBUM_TTL)
+            : [];
+          sessionStorage.setItem(DELETED_ALBUMS_KEY, JSON.stringify(cleaned));
+          return cleaned;
+        } catch {
+          sessionStorage.removeItem(DELETED_ALBUMS_KEY);
+          return [];
+        }
+      }
+
+      function writeDeletedAlbums(items) {
+        sessionStorage.setItem(DELETED_ALBUMS_KEY, JSON.stringify(items.slice(-100)));
+      }
+
+      function rememberDeletedAlbum(albumId) {
+        const items = readDeletedAlbums().filter(item => item.id !== albumId);
+        items.push({ id: albumId, deletedAt: Date.now() });
+        writeDeletedAlbums(items);
+      }
+
+      function forgetDeletedAlbum(albumId) {
+        writeDeletedAlbums(readDeletedAlbums().filter(item => item.id !== albumId));
+      }
+
+      function albumNameKey(value) {
+        return String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
+      }
+
       function rememberPendingAlbum(album) {
         const pending = readPendingAlbums().filter(item => item.id !== album.id);
         pending.push(album);
@@ -1182,11 +1217,26 @@
       }
 
       function mergeServerAndPendingAlbums(serverAlbums) {
-        const serverIds = new Set(serverAlbums.map(album => album.id));
-        const unresolved = readPendingAlbums().filter(album => !serverIds.has(album.id));
+        const deleted = readDeletedAlbums();
+        const deletedIds = new Set(deleted.map(item => item.id));
+        const visibleServer = serverAlbums.filter(album => !deletedIds.has(album.id));
+        const visibleServerIds = new Set(visibleServer.map(album => album.id));
+
+        const unresolved = readPendingAlbums().filter(album =>
+          !visibleServerIds.has(album.id) && !deletedIds.has(album.id)
+        );
         writePendingAlbums(unresolved);
+
         const merged = new Map();
-        [...serverAlbums, ...unresolved].forEach(album => merged.set(album.id, album));
+        [...visibleServer, ...unresolved].forEach(album => merged.set(album.id, album));
+
+        // Khi KV đã hết trả album cũ, bỏ tombstone sau một khoảng đệm ngắn.
+        const serverIds = new Set(serverAlbums.map(album => album.id));
+        const now = Date.now();
+        writeDeletedAlbums(deleted.filter(item =>
+          serverIds.has(item.id) || now - Number(item.deletedAt || 0) < 10000
+        ));
+
         return [...merged.values()].sort((a, b) =>
           (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)
           || a.name.localeCompare(b.name, "vi")
@@ -1194,6 +1244,7 @@
       }
 
       function upsertLocalAlbum(album) {
+        forgetDeletedAlbum(album.id);
         state.albums = [...state.albums.filter(item => item.id !== album.id), album]
           .sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0) || a.name.localeCompare(b.name, "vi"));
         rememberPendingAlbum(album);
@@ -1461,9 +1512,22 @@
           { id: "unclassified", name: "Chưa phân loại", virtual: true },
           ...state.albums
         ];
-        albumStrip.innerHTML = items.map(album => `
-          <button class="album-chip${state.activeAlbum === album.id ? " is-active" : ""}" data-album-id="${escapeHtml(album.id)}" type="button">${escapeHtml(album.name)}</button>
-        `).join("");
+        const totals = new Map();
+        const seen = new Map();
+        state.albums.forEach(album => {
+          const key = albumNameKey(album.name);
+          totals.set(key, (totals.get(key) || 0) + 1);
+        });
+        albumStrip.innerHTML = items.map(album => {
+          let label = album.name;
+          if (!album.virtual) {
+            const key = albumNameKey(album.name);
+            const index = (seen.get(key) || 0) + 1;
+            seen.set(key, index);
+            if ((totals.get(key) || 0) > 1) label = `${album.name} (${index})`;
+          }
+          return `<button class="album-chip${state.activeAlbum === album.id ? " is-active" : ""}" data-album-id="${escapeHtml(album.id)}" type="button">${escapeHtml(label)}</button>`;
+        }).join("");
 
         bulkAlbumSelect.innerHTML = [
           '<option value="unclassified">Chưa phân loại</option>',
@@ -1562,7 +1626,7 @@
         const status = statusOf(file);
         if (status === "white") return "Danh sách trắng";
         if (status === "block") return "Danh sách đen";
-        return "Bình thường";
+        return "";
       }
 
       function cardMarkup(file) {
@@ -1574,7 +1638,7 @@
             <div class="preview" data-action="preview" data-name="${escapeHtml(file.name)}">
               ${previewMarkup(file)}
               <label class="select-box" data-action="select" data-name="${escapeHtml(file.name)}" title="Chọn ảnh"><input data-action="select" data-name="${escapeHtml(file.name)}" type="checkbox"${checked}></label>
-              <span class="badge ${status}">${statusLabel(file)}</span>
+              ${statusLabel(file) ? `<span class="badge ${status}">${statusLabel(file)}</span>` : ""}
             </div>
             <div class="card-body">
               <div>
@@ -1622,6 +1686,34 @@
         bulkBar.classList.toggle("is-visible", state.selected.size > 0);
       }
 
+      function updateEmptyState(files) {
+        if (files.length > 0 || state.loading) {
+          emptyState.classList.remove("is-visible");
+          return;
+        }
+
+        const hasExtraFilter = Boolean(state.search.trim())
+          || state.filter !== "all"
+          || state.month !== "all";
+
+        if (state.activeAlbum === "all") {
+          emptyState.textContent = hasExtraFilter
+            ? "Không tìm thấy ảnh phù hợp với bộ lọc hiện tại."
+            : "Kho ảnh chưa có file nào.";
+        } else if (state.activeAlbum === "unclassified") {
+          emptyState.textContent = hasExtraFilter
+            ? "Không có ảnh phù hợp trong mục Chưa phân loại."
+            : "Chưa có ảnh nào trong mục Chưa phân loại.";
+        } else {
+          const album = state.albums.find(item => item.id === state.activeAlbum);
+          const name = album?.name || "Album này";
+          emptyState.textContent = hasExtraFilter
+            ? `Không có ảnh phù hợp trong album “${name}”.`
+            : `Album “${name}” chưa có ảnh.`;
+        }
+        emptyState.classList.add("is-visible");
+      }
+
       function render() {
         updateStats();
         updateMonthOptions();
@@ -1630,7 +1722,7 @@
         gridViewButton.classList.toggle("is-active", state.view === "grid");
         listViewButton.classList.toggle("is-active", state.view === "list");
         fileGrid.innerHTML = files.map(cardMarkup).join("");
-        emptyState.classList.toggle("is-visible", files.length === 0 && !state.loading);
+        updateEmptyState(files);
         renderAlbums();
         renderBulk();
         setupLazyMedia();
@@ -1801,6 +1893,13 @@
           required: true,
         });
         if (!answer.confirmed) return;
+        const duplicate = state.albums.find(album => albumNameKey(album.name) === albumNameKey(answer.value));
+        if (duplicate) {
+          state.activeAlbum = duplicate.id;
+          renderAlbums();
+          toast(`Album “${duplicate.name}” đã tồn tại.`, "error");
+          return;
+        }
         try {
           const response = await api("/api/manage/albums", {
             method: "POST",
@@ -1832,6 +1931,13 @@
           required: true,
         });
         if (!answer.confirmed) return;
+        const duplicate = state.albums.find(item =>
+          item.id !== album.id && albumNameKey(item.name) === albumNameKey(answer.value)
+        );
+        if (duplicate) {
+          toast(`Đã có album tên “${duplicate.name}”.`, "error");
+          return;
+        }
         try {
           const response = await api("/api/manage/albums", {
             method: "PUT",
@@ -1868,13 +1974,15 @@
             complete = data.complete;
             moved += data.moved || 0;
           }
+          rememberDeletedAlbum(album.id);
           forgetPendingAlbum(album.id);
           state.albums = state.albums.filter(item => item.id !== album.id);
           state.activeAlbum = "all";
           renderAlbums();
-          await loadAlbums();
           await loadFiles({ reset: true });
           toast(`Đã xóa album và chuyển ${moved} ảnh về Chưa phân loại.`);
+          setTimeout(() => loadAlbums().catch(() => {}), 2000);
+          setTimeout(() => loadAlbums().catch(() => {}), 8000);
         } catch (error) { toast(error.message, "error"); }
         finally { deleteAlbumButton.textContent = "Xóa album"; renderAlbums(); }
       });
