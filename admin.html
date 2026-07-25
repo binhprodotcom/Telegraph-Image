@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111111">
   <meta name="description" content="BBC Image — quản lý kho ảnh.">
-  <meta name="generator" content="BBC Image Admin 2.1">
+  <meta name="generator" content="BBC Image Admin 2.2">
   <title>Quản lý ảnh · BBC Image</title>
   <link rel="icon" href="/favicon.ico">
   <style>
@@ -367,7 +367,7 @@
       background: rgba(11,11,11,.72);
       font-size: 10px;
       font-weight: 760;
-      backdrop-filter: blur(12px);
+      
     }
 
     .badge.white { color: #b5ffd0; }
@@ -492,7 +492,7 @@
       place-items: center;
       padding: 24px;
       background: rgba(0,0,0,.80);
-      backdrop-filter: blur(8px);
+      
     }
 
     .modal.is-visible { display: grid; }
@@ -551,10 +551,191 @@
     @media (max-width: 480px) {
       .grid { grid-template-columns: 1fr; }
     }
+
+    .card {
+      content-visibility: auto;
+      contain-intrinsic-size: 430px;
+      contain: layout paint style;
+    }
+
+    .preview img,
+    .preview video {
+      background: #151515;
+    }
+
+    .media-skeleton {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(100deg, transparent 25%, rgba(255,255,255,.055) 42%, transparent 58%) 0 0 / 240% 100%,
+        #171717;
+      animation: skeleton 1.5s linear infinite;
+    }
+
+    @keyframes skeleton {
+      to { background-position: -240% 0; }
+    }
+
+    .login-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(244,182,92,.17), transparent 34%),
+        linear-gradient(145deg, #171717, #090909 72%);
+    }
+
+    .login-screen[hidden] { display: none; }
+
+    .login-card {
+      width: min(460px, 100%);
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: #171717;
+      box-shadow: 0 28px 90px rgba(0,0,0,.52);
+    }
+
+    .login-icon {
+      display: grid;
+      width: 54px;
+      height: 54px;
+      place-items: center;
+      margin-bottom: 24px;
+      border: 1px solid rgba(244,182,92,.30);
+      border-radius: 17px;
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .login-icon svg { width: 25px; height: 25px; }
+
+    .login-card h1 {
+      margin: 0;
+      font-size: 34px;
+      letter-spacing: -.045em;
+    }
+
+    .login-card > p {
+      margin: 9px 0 23px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .login-fields {
+      display: grid;
+      gap: 14px;
+    }
+
+    .login-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .login-field span {
+      color: rgba(247,242,233,.78);
+      font-size: 12px;
+      font-weight: 680;
+    }
+
+    .login-field input {
+      width: 100%;
+      min-height: 50px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      outline: none;
+      color: var(--text);
+      background: rgba(255,255,255,.05);
+    }
+
+    .login-field input:focus {
+      border-color: rgba(244,182,92,.68);
+      box-shadow: 0 0 0 4px rgba(244,182,92,.09);
+    }
+
+    .login-error {
+      min-height: 19px;
+      margin: 12px 0 0;
+      color: var(--danger);
+      font-size: 12px;
+    }
+
+    .login-submit {
+      width: 100%;
+      min-height: 50px;
+      cursor: pointer;
+      margin-top: 16px;
+      border: 0;
+      border-radius: 999px;
+      color: #17120a;
+      background: var(--accent);
+      font-weight: 780;
+    }
+
+    .login-submit:disabled {
+      cursor: wait;
+      opacity: .62;
+    }
+
+    .login-back {
+      display: block;
+      width: fit-content;
+      margin: 17px auto 0;
+      color: var(--muted);
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    .shell[aria-hidden="true"] {
+      visibility: hidden;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+
   </style>
 </head>
 <body>
-  <main class="shell">
+<section class="login-screen" id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <div class="login-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="10" width="16" height="11" rx="3" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <circle cx="12" cy="15.5" r="1.3" fill="currentColor"/>
+        </svg>
+      </div>
+      <h1>Đăng nhập quản trị</h1>
+      <p>Nhập tài khoản <strong>BASIC_USER</strong> và <strong>BASIC_PASS</strong>. Thông tin chỉ được lưu trong tab hiện tại.</p>
+
+      <div class="login-fields">
+        <label class="login-field">
+          <span>Tên đăng nhập</span>
+          <input id="loginUser" type="text" autocomplete="username" required>
+        </label>
+        <label class="login-field">
+          <span>Mật khẩu</span>
+          <input id="loginPass" type="password" autocomplete="current-password" required>
+        </label>
+      </div>
+
+      <div class="login-error" id="loginError" role="alert"></div>
+      <button class="login-submit" id="loginSubmit" type="submit">Đăng nhập</button>
+      <a class="login-back" href="/">← Quay lại trang tải ảnh</a>
+    </form>
+  </section>
+  <main class="shell" id="appShell" aria-hidden="true">
     <header class="topbar">
       <a class="brand" href="/">
         <span class="brand-mark" aria-hidden="true">
@@ -581,7 +762,7 @@
       <div>
         <span class="hero-label">BBC Image Dashboard</span>
         <h1>Quản lý ảnh.</h1>
-        <p>Tìm kiếm, xem trước, đổi tên hiển thị, sao chép link ngắn và quản lý trạng thái của từng file.</p>
+        <p>Tìm kiếm, xem trước, đổi tên hiển thị, sao chép link gốc có đuôi file và quản lý trạng thái của từng file.</p>
       </div>
 
       <div class="stats">
@@ -641,6 +822,9 @@
     (() => {
       "use strict";
 
+      const AUTH_KEY = "bbcAdminBasicAuth";
+      const PAGE_SIZE = 24;
+
       const state = {
         files: [],
         cursor: null,
@@ -648,8 +832,17 @@
         search: "",
         filter: "all",
         sort: "newest",
-        view: localStorage.getItem("bbcAdminView") || "grid"
+        view: localStorage.getItem("bbcAdminView") || "grid",
+        authHeader: sessionStorage.getItem(AUTH_KEY) || ""
       };
+
+      const appShell = document.getElementById("appShell");
+      const loginScreen = document.getElementById("loginScreen");
+      const loginForm = document.getElementById("loginForm");
+      const loginUser = document.getElementById("loginUser");
+      const loginPass = document.getElementById("loginPass");
+      const loginError = document.getElementById("loginError");
+      const loginSubmit = document.getElementById("loginSubmit");
 
       const fileGrid = document.getElementById("fileGrid");
       const emptyState = document.getElementById("emptyState");
@@ -667,6 +860,94 @@
       const modalClose = document.getElementById("modalClose");
 
       let searchTimer = null;
+      let mediaObserver = null;
+
+      function encodeBasicAuth(user, pass) {
+        const bytes = new TextEncoder().encode(`${user}:${pass}`);
+        let binary = "";
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        return `Basic ${btoa(binary)}`;
+      }
+
+      function showLogin(message = "") {
+        loginError.textContent = message;
+        loginScreen.hidden = false;
+        appShell.setAttribute("aria-hidden", "true");
+        setTimeout(() => loginUser.focus(), 60);
+      }
+
+      function showApp() {
+        loginScreen.hidden = true;
+        appShell.setAttribute("aria-hidden", "false");
+        logoutButton.hidden = false;
+      }
+
+      function clearAuth(message = "") {
+        state.authHeader = "";
+        sessionStorage.removeItem(AUTH_KEY);
+        state.files = [];
+        state.cursor = null;
+        render();
+        showLogin(message);
+      }
+
+      async function verifyAuth(header) {
+        const response = await fetch("/api/manage/check", {
+          headers: { Authorization: header },
+          cache: "no-store"
+        });
+        if (response.status === 401) return false;
+        if (!response.ok) throw new Error(`Không thể kiểm tra tài khoản (${response.status}).`);
+        return true;
+      }
+
+      loginForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        loginError.textContent = "";
+        loginSubmit.disabled = true;
+        loginSubmit.textContent = "Đang kiểm tra…";
+
+        const header = encodeBasicAuth(loginUser.value.trim(), loginPass.value);
+
+        try {
+          const valid = await verifyAuth(header);
+          if (!valid) {
+            loginError.textContent = "Tên đăng nhập hoặc mật khẩu chưa đúng.";
+            loginPass.select();
+            return;
+          }
+
+          state.authHeader = header;
+          sessionStorage.setItem(AUTH_KEY, header);
+          loginPass.value = "";
+          showApp();
+          await loadFiles({ reset: true });
+        } catch (error) {
+          loginError.textContent = error.message || "Không thể đăng nhập.";
+        } finally {
+          loginSubmit.disabled = false;
+          loginSubmit.textContent = "Đăng nhập";
+        }
+      });
+
+      async function initAuth() {
+        if (!state.authHeader) {
+          showLogin();
+          return;
+        }
+
+        try {
+          const valid = await verifyAuth(state.authHeader);
+          if (!valid) {
+            clearAuth("Phiên đăng nhập không còn hợp lệ.");
+            return;
+          }
+          showApp();
+          await loadFiles({ reset: true });
+        } catch (_) {
+          clearAuth("Không thể kiểm tra phiên đăng nhập.");
+        }
+      }
 
       function safeMetadata(value) {
         if (!value) return {};
@@ -675,10 +956,7 @@
       }
 
       function normalizeFile(file) {
-        return {
-          ...file,
-          metadata: safeMetadata(file.metadata)
-        };
+        return { ...file, metadata: safeMetadata(file.metadata) };
       }
 
       function statusOf(file) {
@@ -692,8 +970,13 @@
         return file.metadata?.fileName || file.name;
       }
 
+      function originalLink(file) {
+        return `${location.origin}/file/${encodeURIComponent(file.name)}`;
+      }
+
       function shortLink(file) {
-        return `${location.origin}/file/${file.metadata?.shortId || file.name}`;
+        const shortId = file.metadata?.shortId;
+        return shortId ? `${location.origin}/file/${shortId}` : "";
       }
 
       function fileUrl(file) {
@@ -707,9 +990,9 @@
 
       function mediaType(file) {
         const ext = extensionOf(file.name);
-        if (["jpg","jpeg","png","gif","webp","bmp","tiff","ico","svg","avif"].includes(ext)) return "image";
-        if (["mp4","webm","mov","m4v"].includes(ext)) return "video";
-        if (["mp3","wav","ogg","m4a","flac"].includes(ext)) return "audio";
+        if (["jpg","jpeg","png","gif","webp","bmp","tiff","ico","svg","avif","apng"].includes(ext)) return "image";
+        if (["mp4","webm","mov","m4v","ogv"].includes(ext)) return "video";
+        if (["mp3","wav","ogg","m4a","flac","aac"].includes(ext)) return "audio";
         if (ext === "pdf") return "pdf";
         return "file";
       }
@@ -740,7 +1023,7 @@
         el.className = `toast ${type}`;
         el.textContent = message;
         toastWrap.appendChild(el);
-        setTimeout(() => el.remove(), 3200);
+        setTimeout(() => el.remove(), 3000);
       }
 
       function showNotice(message = "") {
@@ -749,15 +1032,24 @@
       }
 
       async function api(url, options = {}) {
+        if (!state.authHeader) {
+          clearAuth("Vui lòng đăng nhập.");
+          throw new Error("Cần đăng nhập.");
+        }
+
+        const headers = new Headers(options.headers || {});
+        headers.set("Authorization", state.authHeader);
+
         const response = await fetch(url, {
-          credentials: "include",
+          cache: "no-store",
           redirect: "follow",
-          ...options
+          ...options,
+          headers
         });
 
         if (response.status === 401) {
-          location.href = "/api/manage/login";
-          throw new Error("Cần đăng nhập.");
+          clearAuth("Phiên đăng nhập đã hết hiệu lực hoặc tài khoản chưa đúng.");
+          throw new Error("Cần đăng nhập lại.");
         }
 
         if (!response.ok) {
@@ -767,23 +1059,8 @@
         return response;
       }
 
-      async function checkLogin() {
-        try {
-          const response = await fetch("/api/manage/check", { credentials: "include" });
-          const result = await response.text();
-
-          if (result === "true") {
-            logoutButton.hidden = false;
-          } else if (result !== "Not using basic auth.") {
-            location.href = "/api/manage/login";
-          }
-        } catch (_) {
-          showNotice("Không thể kiểm tra trạng thái đăng nhập.");
-        }
-      }
-
       async function loadFiles({ reset = false } = {}) {
-        if (state.loading) return;
+        if (state.loading || !state.authHeader) return;
         state.loading = true;
         loadMoreButton.disabled = true;
         showNotice("");
@@ -794,7 +1071,7 @@
           render();
         }
 
-        const params = new URLSearchParams({ limit: "100" });
+        const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
         if (state.cursor) params.set("cursor", state.cursor);
         if (state.search.trim()) params.set("prefix", state.search.trim());
 
@@ -812,7 +1089,7 @@
           loadMoreButton.hidden = !state.cursor;
           render();
         } catch (error) {
-          showNotice(error.message || "Không thể tải dữ liệu từ máy chủ.");
+          if (state.authHeader) showNotice(error.message || "Không thể tải dữ liệu.");
         } finally {
           state.loading = false;
           loadMoreButton.disabled = false;
@@ -855,10 +1132,10 @@
         const url = fileUrl(file);
 
         if (type === "image") {
-          return `<img src="${url}" alt="${escapeHtml(displayName(file))}" loading="lazy">`;
+          return `<span class="media-skeleton" aria-hidden="true"></span><img data-src="${url}" alt="${escapeHtml(displayName(file))}" decoding="async" fetchpriority="low">`;
         }
         if (type === "video") {
-          return `<video src="${url}" muted preload="metadata"></video>`;
+          return `<span class="media-skeleton" aria-hidden="true"></span><video data-src="${url}" muted preload="none" playsinline></video>`;
         }
 
         return `<div class="file-placeholder"><strong>${escapeHtml(extensionOf(file.name).toUpperCase() || "FILE")}</strong><span>Nhấn để mở file</span></div>`;
@@ -874,6 +1151,8 @@
       function cardMarkup(file) {
         const status = statusOf(file);
         const type = mediaType(file);
+        const short = shortLink(file);
+
         return `
           <article class="card" data-name="${escapeHtml(file.name)}">
             <div class="preview" data-action="preview" data-name="${escapeHtml(file.name)}">
@@ -887,11 +1166,12 @@
                   <span>${escapeHtml(type === "file" ? "Tệp" : type)}</span>
                   <span>${formatDate(timestampOf(file))}</span>
                 </div>
-                <div class="link-line" title="${escapeHtml(shortLink(file))}">${escapeHtml(shortLink(file))}</div>
+                <div class="link-line" title="${escapeHtml(originalLink(file))}">${escapeHtml(originalLink(file))}</div>
               </div>
 
               <div class="card-actions">
-                <button class="card-action" data-action="copy" data-name="${escapeHtml(file.name)}">Sao chép link</button>
+                <button class="card-action" data-action="copy-original" data-name="${escapeHtml(file.name)}">Sao chép link gốc</button>
+                ${short ? `<button class="card-action" data-action="copy-short" data-name="${escapeHtml(file.name)}">Sao chép link ngắn</button>` : ""}
                 <button class="card-action" data-action="rename" data-name="${escapeHtml(file.name)}">Đổi tên</button>
                 <button class="card-action" data-action="white" data-name="${escapeHtml(file.name)}">Danh sách trắng</button>
                 <button class="card-action" data-action="block" data-name="${escapeHtml(file.name)}">Danh sách đen</button>
@@ -901,6 +1181,37 @@
             </div>
           </article>
         `;
+      }
+
+      function setupLazyMedia() {
+        mediaObserver?.disconnect();
+
+        mediaObserver = new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const media = entry.target;
+            const src = media.dataset.src;
+            if (!src) return;
+
+            media.addEventListener("load", () => {
+              media.previousElementSibling?.remove();
+            }, { once: true });
+
+            media.addEventListener("loadeddata", () => {
+              media.previousElementSibling?.remove();
+            }, { once: true });
+
+            media.addEventListener("error", () => {
+              media.previousElementSibling?.remove();
+            }, { once: true });
+
+            media.src = src;
+            media.removeAttribute("data-src");
+            mediaObserver.unobserve(media);
+          });
+        }, { rootMargin: "420px 0px" });
+
+        fileGrid.querySelectorAll("[data-src]").forEach(media => mediaObserver.observe(media));
       }
 
       function render() {
@@ -913,6 +1224,7 @@
 
         fileGrid.innerHTML = files.map(cardMarkup).join("");
         emptyState.classList.toggle("is-visible", files.length === 0 && !state.loading);
+        setupLazyMedia();
       }
 
       function findFile(name) {
@@ -954,24 +1266,16 @@
       }
 
       async function renameFile(file) {
-        const current = displayName(file);
-        const value = prompt("Tên hiển thị mới:", current);
+        const value = prompt("Tên hiển thị mới:", displayName(file));
         if (value === null) return;
 
         const trimmed = value.trim();
-        if (!trimmed) {
-          toast("Tên file không được để trống.", "error");
-          return;
-        }
-        if (trimmed.length > 64) {
-          toast("Tên file không được vượt quá 64 ký tự.", "error");
-          return;
-        }
+        if (!trimmed) return toast("Tên file không được để trống.", "error");
+        if (trimmed.length > 64) return toast("Tên file không được vượt quá 64 ký tự.", "error");
 
         try {
           const response = await api(`/api/manage/editName/${encodeURIComponent(file.name)}?newName=${encodeURIComponent(trimmed)}`);
           const result = await response.json();
-
           if (!result.success) throw new Error("Máy chủ từ chối đổi tên.");
 
           file.metadata.fileName = trimmed;
@@ -984,7 +1288,7 @@
 
       async function deleteRecord(file) {
         const accepted = confirm(
-          "Xóa bản ghi này khỏi dashboard?\n\nFile gốc trên Telegram không bị xóa. Muốn chặn truy cập, hãy dùng Danh sách đen."
+          "Xóa bản ghi này khỏi dashboard?\\n\\nFile gốc trên Telegram không bị xóa. Muốn chặn truy cập, hãy dùng Danh sách đen."
         );
         if (!accepted) return;
 
@@ -1007,12 +1311,14 @@
           const img = document.createElement("img");
           img.src = url;
           img.alt = displayName(file);
+          img.decoding = "async";
           modalContent.appendChild(img);
         } else if (type === "video") {
           const video = document.createElement("video");
           video.src = url;
           video.controls = true;
           video.autoplay = true;
+          video.preload = "metadata";
           modalContent.appendChild(video);
         } else {
           window.open(url, "_blank", "noopener");
@@ -1030,9 +1336,12 @@
         if (!file) return;
 
         const action = target.dataset.action;
-        if (action === "copy") {
+        if (action === "copy-original") {
+          await copyText(originalLink(file));
+          toast("Đã sao chép link gốc có đuôi file.");
+        } else if (action === "copy-short") {
           await copyText(shortLink(file));
-          toast("Đã sao chép liên kết.");
+          toast("Đã sao chép link ngắn.");
         } else if (action === "rename") {
           renameFile(file);
         } else if (action === "white") {
@@ -1062,7 +1371,7 @@
         searchTimer = setTimeout(() => {
           state.search = searchInput.value;
           loadFiles({ reset: true });
-        }, 350);
+        }, 400);
       });
 
       sortSelect.addEventListener("change", () => {
@@ -1086,7 +1395,9 @@
       loadMoreButton.addEventListener("click", () => loadFiles());
 
       logoutButton.addEventListener("click", () => {
-        location.href = "/api/manage/logout";
+        loginUser.value = "";
+        loginPass.value = "";
+        clearAuth("Đã đăng xuất.");
       });
 
       modalClose.addEventListener("click", () => {
@@ -1102,9 +1413,8 @@
         if (event.key === "Escape") modalClose.click();
       });
 
-      checkLogin();
-      loadFiles({ reset: true });
       render();
+      initAuth();
     })();
   </script>
 </body>
