@@ -1,360 +1,1111 @@
-<!DOCTYPE html>
-<html>
-
+<!doctype html>
+<html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <!-- import CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.3/lib/theme-chalk/index.css"
-    integrity="sha256-ghr1zmXTODLKl1HULQd6fq1MIe7m3FJiNTOCT8sddLM=" crossorigin="anonymous">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="BBC Image — quản lý kho ảnh.">
+  <meta name="generator" content="BBC Image Admin 2.1">
+  <title>Quản lý ảnh · BBC Image</title>
+  <link rel="icon" href="/favicon.ico">
   <style>
-    .el-image__inner.el-image__inner {
-      width: 100%;
-      height: 90px;
+    :root {
+      --bg: #101010;
+      --panel: rgba(22,22,22,.91);
+      --panel-2: rgba(29,29,29,.92);
+      --text: #f7f2e9;
+      --muted: rgba(247,242,233,.60);
+      --line: rgba(255,255,255,.12);
+      --accent: #f4b65c;
+      --accent-soft: rgba(244,182,92,.12);
+      --success: #7ed99b;
+      --danger: #ff7777;
+      --blue: #79b7ff;
+      --radius: 22px;
+      --shadow: 0 24px 70px rgba(0,0,0,.34);
     }
 
-    .el-image {
-      text-align: center;
-    }
+    * { box-sizing: border-box; }
 
-    .el-button+.el-button {
+    body {
+      min-height: 100vh;
       margin: 0;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(244,182,92,.13), transparent 29%),
+        linear-gradient(145deg, #151515, #0b0b0b 62%);
+    }
+
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+
+    .shell {
+      width: min(1660px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 24px 0 42px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--accent);
+      background: rgba(255,255,255,.06);
+    }
+
+    .brand-mark svg { width: 22px; height: 22px; }
+
+    .brand strong {
+      display: block;
+      font-size: 16px;
+      letter-spacing: -.02em;
+    }
+
+    .brand small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 9px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 42px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 15px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255,255,255,.055);
+      text-decoration: none;
+      font-weight: 680;
+      transition: .18s ease;
+    }
+
+    .button:hover:not(:disabled) {
+      border-color: rgba(244,182,92,.42);
+      background: rgba(255,255,255,.10);
+      transform: translateY(-1px);
+    }
+
+    .button.primary {
+      border-color: transparent;
+      color: #17120a;
+      background: var(--accent);
+    }
+
+    .button.danger { color: #ffabab; }
+    .button:disabled { cursor: not-allowed; opacity: .42; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 20px;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 12% 4%, rgba(244,182,92,.16), transparent 32%),
+        var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-label {
+      display: inline-flex;
+      width: fit-content;
+      padding: 7px 11px;
+      border: 1px solid rgba(244,182,92,.28);
+      border-radius: 999px;
+      color: #ffe0ad;
+      background: var(--accent-soft);
+      font-size: 11px;
+      font-weight: 780;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 7px;
+      font-size: clamp(36px, 4.5vw, 70px);
+      line-height: .96;
+      letter-spacing: -.065em;
+    }
+
+    .hero p {
+      max-width: 720px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      min-width: min(620px, 48vw);
+    }
+
+    .stat {
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 25px;
+      letter-spacing: -.04em;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+    }
+
+    .search {
+      position: relative;
+    }
+
+    .search input {
+      width: 100%;
+      min-height: 45px;
+      padding: 0 16px 0 43px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      outline: none;
+      color: var(--text);
+      background: rgba(255,255,255,.045);
+    }
+
+    .search input:focus {
+      border-color: rgba(244,182,92,.60);
+      box-shadow: 0 0 0 4px rgba(244,182,92,.08);
+    }
+
+    .search svg {
+      position: absolute;
+      top: 50%;
+      left: 15px;
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+      transform: translateY(-50%);
+    }
+
+    .segmented {
+      display: inline-flex;
+      gap: 3px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .segment {
+      min-height: 36px;
+      cursor: pointer;
+      padding: 0 13px;
+      border: 0;
+      border-radius: 999px;
+      color: var(--muted);
+      background: transparent;
+      font-weight: 680;
+    }
+
+    .segment.is-active {
+      color: #17120a;
+      background: var(--accent);
+    }
+
+    .select {
+      min-height: 44px;
+      padding: 0 34px 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      outline: none;
+      color: var(--text);
+      background: #1b1b1b;
+    }
+
+    .notice {
+      display: none;
+      margin-bottom: 15px;
+      padding: 13px 15px;
+      border: 1px solid rgba(255,119,119,.25);
+      border-radius: 15px;
+      color: #ffadad;
+      background: rgba(255,119,119,.07);
+      font-size: 13px;
+    }
+
+    .notice.is-visible { display: block; }
+
+    .empty {
+      display: none;
+      place-items: center;
+      min-height: 320px;
+      padding: 30px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255,255,255,.025);
+    }
+
+    .empty.is-visible { display: grid; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid.is-list {
+      grid-template-columns: 1fr;
+    }
+
+    .card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      box-shadow: 0 16px 45px rgba(0,0,0,.20);
+    }
+
+    .preview {
+      position: relative;
+      display: grid;
+      min-height: 220px;
+      cursor: zoom-in;
+      place-items: center;
+      overflow: hidden;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.025) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.025) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.025) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.025) 75%),
+        #151515;
+      background-position: 0 0, 12px 12px;
+      background-size: 24px 24px;
+    }
+
+    .preview img, .preview video {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      transition: transform .25s ease;
+    }
+
+    .card:hover .preview img { transform: scale(1.025); }
+
+    .file-placeholder {
+      display: grid;
+      gap: 10px;
+      place-items: center;
+      color: var(--muted);
+    }
+
+    .file-placeholder strong {
+      color: var(--text);
+      font-size: 26px;
+    }
+
+    .badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 6px 9px;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(11,11,11,.72);
+      font-size: 10px;
+      font-weight: 760;
+      backdrop-filter: blur(12px);
+    }
+
+    .badge.white { color: #b5ffd0; }
+    .badge.block { color: #ffaaaa; }
+
+    .card-body { padding: 15px; }
+
+    .title {
+      overflow: hidden;
+      margin: 0;
+      font-size: 14px;
+      font-weight: 730;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px 11px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .link-line {
+      overflow: hidden;
+      margin-top: 10px;
+      color: #f8cf8e;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 14px;
+    }
+
+    .card-action {
+      min-height: 37px;
+      cursor: pointer;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: rgba(247,242,233,.82);
+      background: rgba(255,255,255,.04);
+      font-size: 11px;
+      font-weight: 680;
+    }
+
+    .card-action:hover { background: rgba(255,255,255,.09); }
+    .card-action.danger { color: #ff9e9e; }
+
+    .grid.is-list .card {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+    }
+
+    .grid.is-list .preview,
+    .grid.is-list .preview img,
+    .grid.is-list .preview video {
+      min-height: 155px;
+      height: 100%;
+    }
+
+    .grid.is-list .card-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .grid.is-list .card-actions {
+      grid-template-columns: repeat(3, auto);
+      min-width: 410px;
+      margin-top: 0;
+    }
+
+    .load-more {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+    }
+
+    .toast-wrap {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 30;
+      display: grid;
+      gap: 9px;
+    }
+
+    .toast {
+      max-width: 380px;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--text);
+      background: rgba(22,22,22,.96);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      animation: toast-in .22s ease;
+    }
+
+    .toast.success { border-color: rgba(126,217,155,.28); }
+    .toast.error { border-color: rgba(255,119,119,.30); color: #ffb0b0; }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(0,0,0,.80);
+      backdrop-filter: blur(8px);
+    }
+
+    .modal.is-visible { display: grid; }
+
+    .modal img, .modal video {
+      max-width: min(1400px, 94vw);
+      max-height: 88vh;
+      border-radius: 18px;
+      box-shadow: 0 30px 100px rgba(0,0,0,.70);
+    }
+
+    .modal-close {
+      position: fixed;
+      top: 22px;
+      right: 22px;
+      width: 46px;
+      height: 46px;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: var(--text);
+      background: rgba(20,20,20,.82);
+      font-size: 23px;
+    }
+
+    @media (max-width: 1440px) {
+      .grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+      .hero { grid-template-columns: 1fr; }
+      .stats { min-width: 0; }
+    }
+
+    @media (max-width: 1040px) {
+      .grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .toolbar { grid-template-columns: 1fr; }
+      .segmented { width: fit-content; }
+      .grid.is-list .card-actions {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 18px, 1660px); padding-top: 14px; }
+      .brand small { display: none; }
+      .topbar { align-items: flex-start; }
+      .top-actions .button:not(.primary) { display: none; }
+      .hero { padding: 22px; border-radius: 22px; }
+      .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+      .preview, .preview img, .preview video { min-height: 165px; height: 165px; }
+      .grid.is-list .card { grid-template-columns: 110px minmax(0,1fr); }
+      .grid.is-list .card-body { grid-template-columns: 1fr; }
+      .grid.is-list .card-actions { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; }
     }
   </style>
-  <script src="https://js.sentry-cdn.com/219f636ac7bde5edab2c3e16885cb535.min.js" crossorigin="anonymous"></script>
 </head>
-
 <body>
-  <div id="app">
-    <el-container>
-      <el-header>
-        <div style="
-         margin: auto;
-         line-height: 60px;
-         font-size: xx-large;
-         position: relative;
-     ">Dashboard
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 17.5 8.2 13l3.1 3.1 2.2-2.3L20 20H5.5A1.5 1.5 0 0 1 4 18.5v-1Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            <circle cx="15.8" cy="8.2" r="2.2" stroke="currentColor" stroke-width="1.7"/>
+            <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.7"/>
+          </svg>
+        </span>
+        <span>
+          <strong>BBC Image</strong>
+          <small>Quản lý kho ảnh</small>
+        </span>
+      </a>
 
+      <div class="top-actions">
+        <a class="button primary" href="/">Tải ảnh mới</a>
+        <button class="button" id="refreshButton" type="button">Làm mới</button>
+        <button class="button danger" id="logoutButton" type="button" hidden>Đăng xuất</button>
+      </div>
+    </header>
 
-          <span style="
-     position: absolute;
-     right: 0px;
-      ">
-            <a href="./admin-imgtc.html">
-              <el-button size="mini" type="warning">网格视图</el-button>
-            </a>
-            <a href="./admin-waterfall.html">
-              <el-button size="mini" type="primary">瀑布流</el-button>
-            </a>
-            <el-button v-if="showLogoutButton" size="mini" type="info" @click="handleLogout()">退出登录</el-button></span>
+    <section class="hero">
+      <div>
+        <span class="hero-label">BBC Image Dashboard</span>
+        <h1>Quản lý ảnh.</h1>
+        <p>Tìm kiếm, xem trước, đổi tên hiển thị, sao chép link ngắn và quản lý trạng thái của từng file.</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><strong id="statTotal">0</strong><span>Bản ghi đã tải</span></div>
+        <div class="stat"><strong id="statNeutral">0</strong><span>Chưa phân loại</span></div>
+        <div class="stat"><strong id="statWhite">0</strong><span>Danh sách trắng</span></div>
+        <div class="stat"><strong id="statBlock">0</strong><span>Danh sách đen</span></div>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+          <path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input id="searchInput" type="search" placeholder="Tìm theo tên file…" autocomplete="off">
+      </label>
+
+      <div class="segmented" aria-label="Bộ lọc">
+        <button class="segment is-active" data-filter="all" type="button">Tất cả</button>
+        <button class="segment" data-filter="none" type="button">Chưa phân loại</button>
+        <button class="segment" data-filter="white" type="button">Danh sách trắng</button>
+        <button class="segment" data-filter="block" type="button">Danh sách đen</button>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <select class="select" id="sortSelect" aria-label="Sắp xếp">
+          <option value="newest">Mới nhất trước</option>
+          <option value="oldest">Cũ nhất trước</option>
+          <option value="name">Theo tên A–Z</option>
+        </select>
+        <div class="segmented">
+          <button class="segment is-active" id="gridViewButton" type="button">Lưới</button>
+          <button class="segment" id="listViewButton" type="button">Danh sách</button>
         </div>
-      </el-header>
-      <el-main><el-row :gutter="12">
-          <el-col :span="24">
-            <el-card shadow="always">
-              记录总数量:
-              {{ Number }}
-            </el-card>
-          </el-col>
-          <!--<el-col :span="8">
-              <el-card shadow="hover">
-                <el-tooltip class="item" effect="dark" content="白名单数量" placement="top-start">
-                   
-                </el-tooltip>
-                白名单数量：{{ WhiteList }}
-              </el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="hover">
-                <el-tooltip class="item" effect="dark" content="黑名单数量" placement="top-start">
-                
-              </el-tooltip>
-              黑名单数量：{{ BlackList }}
-              </el-card>
-            </el-col>-->
-        </el-row>
-        <template>
-          <el-table :data="tableData.filter(data => !search || data.name.toLowerCase().includes(search.toLowerCase()))"
-            style="width: 100%">
-            <el-table-column label="name" prop="name">
-            </el-table-column>
-            <el-table-column label="preview" prop="preview" align="center">
-              <template slot-scope="scope">
-                <video v-if="scope.row.name.indexOf('.mp4')>0" style="width: 100%; height: 180px;" controls>
-                  <source :src="'/file/'+scope.row.name" type="video/mp4">
-                </video>
-                <el-image v-else style="width: 100%; height: 100%;" :src="'/file/'+scope.row.name" :zoom-rate="1.2"
-                  :preview-src-list="['/file/'+scope.row.name]" fit="cover" lazy />
+      </div>
+    </section>
 
-              </template>
-            </el-table-column>
-            <el-table-column label="data" prop="data">
-              <template slot-scope="scope">
-                <el-popover trigger="hover" placement="top">
-                  <p>{{ scope.row.metadata }}</p>
-                  <div slot="reference" class="name-wrapper">
-                    <el-tag size="medium">{{ scope.row.metadata }}</el-tag>
-                  </div>
-                </el-popover>
-              </template>
-            </el-table-column>
-            <el-table-column align="right">
-              <template slot="header" slot-scope="scope">
-                <el-input v-model="search" @input="handleSearch" size="mini" placeholder="输入关键字搜索" />
-              </template>
-              <template slot-scope="scope">
-                <el-button size="mini" type="primary" @click="handleCopy(scope.$index,scope.row.name)">复制地址</el-button>
-                <el-button size="mini" type="primary" @click="handleWhite(scope.$index,scope.row.name)">白名单</el-button>
-                <el-button size="mini" type="info" @click="handleBlock(scope.$index,scope.row.name)">黑名单</el-button>
-                <el-button size="mini" type="danger" @click="handleDelete(scope.$index,scope.row.name)">删除记录</el-button>
-              </template>
-            </el-table-column>
-            </el-table>
-            <el-button v-if="nextCursor" style="margin-top:16px" @click="loadMore">加载更多</el-button>
-          </template>
-        </el-main>
-    </el-container>
+    <div class="notice" id="notice"></div>
+    <section class="empty" id="emptyState">Chưa có file phù hợp với bộ lọc hiện tại.</section>
+    <section class="grid" id="fileGrid" aria-live="polite"></section>
+
+    <div class="load-more">
+      <button class="button" id="loadMoreButton" type="button" hidden>Tải thêm</button>
+    </div>
+  </main>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-label="Xem trước file">
+    <button class="modal-close" id="modalClose" type="button" aria-label="Đóng">×</button>
+    <div id="modalContent"></div>
   </div>
-</body>
-<!-- import Vue before Element -->
-<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"
-  integrity="sha256-kXTEJcRFN330VirZFl6gj9+UM6gIKW195fYZeR3xDhc=" crossorigin="anonymous"></script>
-<!-- import JavaScript -->
-<script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.3/lib/index.js"
-  integrity="sha256-OFVFYfqhQ9nDnKh+NfIsefpy/fnjTwkK909ZYgo45nw=" crossorigin="anonymous"></script>
-<script>
-  var app = new Vue({
-    el: '#app',
-    data: {
-      Number: 0,
-      WhiteList: 0,
-        BlackList: 0,
-        showLogoutButton: false,
-        tableData: [],
-        nextCursor: null,
-      dialogFormVisible: false,
-      formLabelWidth: '120px',
-      form: {
-        name: '',
-        id: ''
-      },
-      search: '',
-      password: '123456',
-      searchTimer: null
-    },
-    methods: {
-      handleBlock(index, key) {
-        console.log(key);
-        if (confirm("确认加入黑名单吗?")) {
-          console.log("Yes")
-          var requestOptions = {
-            method: 'GET',
-            redirect: 'follow',
-            //include authorization credientials
-            credentials: 'include'
-          };
 
-          fetch("./api/manage/block/" + key, requestOptions)
-            .then(response => response.text())
-            .then(result => {
-              console.log(result);
-              this.tableData[index].metadata = result;
-            })
-            .catch(error => { alert("An error occurred while synchronizing data with the server, please check the network connection"); console.log('error', error) });
+  <script>
+    (() => {
+      "use strict";
 
-        } else {
-          console.log("No")
-        }
-      },
-      handleDelete(index, key) {
-        console.log(key);
-        if (confirm("确认从后台列表删除该记录吗？这不会删除源文件；如需禁止访问请加入黑名单。")) {
-          console.log("Yes")
-          var requestOptions = {
-            method: 'GET',
-            redirect: 'follow',
-            //include authorization credientials
-            credentials: 'include'
-          };
+      const state = {
+        files: [],
+        cursor: null,
+        loading: false,
+        search: "",
+        filter: "all",
+        sort: "newest",
+        view: localStorage.getItem("bbcAdminView") || "grid"
+      };
 
-          fetch("./api/manage/delete/" + key, requestOptions)
-            .then(response => response.text())
-            .then(result => { console.log(result); this.tableData.remove(index); })
-            .catch(error => { alert("An error occurred while synchronizing data with the server, please check the network connection"); console.log('error', error) });
+      const fileGrid = document.getElementById("fileGrid");
+      const emptyState = document.getElementById("emptyState");
+      const notice = document.getElementById("notice");
+      const searchInput = document.getElementById("searchInput");
+      const sortSelect = document.getElementById("sortSelect");
+      const loadMoreButton = document.getElementById("loadMoreButton");
+      const refreshButton = document.getElementById("refreshButton");
+      const logoutButton = document.getElementById("logoutButton");
+      const gridViewButton = document.getElementById("gridViewButton");
+      const listViewButton = document.getElementById("listViewButton");
+      const toastWrap = document.getElementById("toastWrap");
+      const previewModal = document.getElementById("previewModal");
+      const modalContent = document.getElementById("modalContent");
+      const modalClose = document.getElementById("modalClose");
 
-        } else {
-          console.log("No")
-        }
-      },
-      handleWhite(index, key) {
-        console.log(key);
-        if (confirm("确认加入白名单吗?")) {
-          console.log("Yes")
-          var requestOptions = {
-            method: 'GET',
-            redirect: 'follow',
-            //include authorization credientials
-            credentials: 'include'
-          };
-          fetch("./api/manage/white/" + key, requestOptions)
-            .then(response => response.text())
-            .then(result => { console.log(result); this.tableData[index].metadata = result; })
-            .catch(error => { alert("An error occurred while synchronizing data with the server, please check the network connection"); console.log('error', error) });
+      let searchTimer = null;
 
-        } else {
-          console.log("No")
-        }
+      function safeMetadata(value) {
+        if (!value) return {};
+        if (typeof value === "object") return value;
+        try { return JSON.parse(value); } catch (_) { return {}; }
+      }
 
-      },
-      handleLogout() {
-        window.location.href = "./api/manage/logout";
-      },
-      handleCopy(index, key) {
-        const row = this.tableData.find(item => item.name === key);
-        const shortId = row && row.metadata && row.metadata.shortId;
-        const text = `${document.location.origin}/file/${shortId || key}`;
-        if (navigator.clipboard) {
-          // clipboard api 复制
-          navigator.clipboard.writeText(text);
-        } else {
-          const textarea = document.createElement('textarea');
-          document.body.appendChild(textarea);
-          // 隐藏此输入框
-          textarea.style.position = 'fixed';
-          textarea.style.clip = 'rect(0 0 0 0)';
-          textarea.style.top = '10px';
-          // 赋值
-          textarea.value = text;
-          // 选中
-          textarea.select();
-          // 复制
-          document.execCommand('copy', true);
-          // 移除输入框
-          document.body.removeChild(textarea);
-        }
-        this.$message({
-          message: '复制文件链接成功~',
-          type: 'success'
+      function normalizeFile(file) {
+        return {
+          ...file,
+          metadata: safeMetadata(file.metadata)
+        };
+      }
+
+      function statusOf(file) {
+        const type = String(file.metadata?.ListType || "None").toLowerCase();
+        if (type === "white") return "white";
+        if (type === "block") return "block";
+        return "none";
+      }
+
+      function displayName(file) {
+        return file.metadata?.fileName || file.name;
+      }
+
+      function shortLink(file) {
+        return `${location.origin}/file/${file.metadata?.shortId || file.name}`;
+      }
+
+      function fileUrl(file) {
+        return `/file/${encodeURIComponent(file.name)}`;
+      }
+
+      function extensionOf(name) {
+        const part = String(name).split(".").pop();
+        return part && part !== name ? part.toLowerCase() : "";
+      }
+
+      function mediaType(file) {
+        const ext = extensionOf(file.name);
+        if (["jpg","jpeg","png","gif","webp","bmp","tiff","ico","svg","avif"].includes(ext)) return "image";
+        if (["mp4","webm","mov","m4v"].includes(ext)) return "video";
+        if (["mp3","wav","ogg","m4a","flac"].includes(ext)) return "audio";
+        if (ext === "pdf") return "pdf";
+        return "file";
+      }
+
+      function timestampOf(file) {
+        const value = Number(file.metadata?.TimeStamp || 0);
+        return Number.isFinite(value) ? value : 0;
+      }
+
+      function formatDate(timestamp) {
+        if (!timestamp) return "Không rõ thời gian";
+        return new Intl.DateTimeFormat("vi-VN", {
+          day: "2-digit", month: "2-digit", year: "numeric",
+          hour: "2-digit", minute: "2-digit"
+        }).format(new Date(timestamp));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function toast(message, type = "success") {
+        const el = document.createElement("div");
+        el.className = `toast ${type}`;
+        el.textContent = message;
+        toastWrap.appendChild(el);
+        setTimeout(() => el.remove(), 3200);
+      }
+
+      function showNotice(message = "") {
+        notice.textContent = message;
+        notice.classList.toggle("is-visible", Boolean(message));
+      }
+
+      async function api(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: "include",
+          redirect: "follow",
+          ...options
         });
-      },
-      handleSearch() {
-        clearTimeout(this.searchTimer);
-        this.searchTimer = setTimeout(() => {
-          this.tableData = [];
-          this.nextCursor = null;
-          const opts = { method: 'GET', redirect: 'follow', credentials: 'include' };
-          const base = this.search
-            ? `./api/manage/list?limit=100&prefix=${encodeURIComponent(this.search)}`
-            : `./api/manage/list?limit=100`;
-          fetch(base, opts)
-            .then(r => r.json())
-            .then(result => {
-              this.tableData = result.keys || [];
-              this.nextCursor = result.list_complete ? null : result.cursor;
-              this.Number = this.tableData.length;
-            })
-            .catch(() => alert("搜索失败，请检查网络"));
-        }, 300);
-      },
-      loadMore() {
-        const opts = { method: 'GET', redirect: 'follow', credentials: 'include' };
-        const base = this.search
-          ? `./api/manage/list?limit=100&prefix=${encodeURIComponent(this.search)}`
-          : `./api/manage/list?limit=100`;
-        const url = this.nextCursor
-          ? `${base}&cursor=${encodeURIComponent(this.nextCursor)}`
-          : base;
 
-        fetch(url, opts)
-          .then(r => r.json())
-          .then(result => {
-            this.tableData = this.tableData.concat(result.keys || []);
-            this.nextCursor = result.list_complete ? null : result.cursor;
-            this.Number = this.tableData.length;
-          })
-          .catch(() => alert("同步失败，请检查网络"));
-      },
-    },
+        if (response.status === 401) {
+          location.href = "/api/manage/login";
+          throw new Error("Cần đăng nhập.");
+        }
 
-    mounted() {
-      //check if the user is logged in
-      //read the basic auth credientials from the browser
-      var requestOptions = {
-        method: 'GET',
-        redirect: 'follow',
-        //include authorization credientials
-        credentials: 'include'
-      };
-      fetch("./api/manage/check", requestOptions)
-        .then(response => response.text())
-        .then(result => {
-          console.log(result);
-          if (result == "true") {
-            this.showLogoutButton = true;
-          } else if (result == "Not using basic auth.") {
+        if (!response.ok) {
+          throw new Error(`Yêu cầu thất bại (${response.status}).`);
+        }
 
+        return response;
+      }
+
+      async function checkLogin() {
+        try {
+          const response = await fetch("/api/manage/check", { credentials: "include" });
+          const result = await response.text();
+
+          if (result === "true") {
+            logoutButton.hidden = false;
+          } else if (result !== "Not using basic auth.") {
+            location.href = "/api/manage/login";
           }
-          else {
-            window.location.href = "./api/manage/login";
-          }
-        })
-        .catch(error => { alert("An error occurred while synchronizing data with the server, please check the network connection"); console.log('error', error) });
+        } catch (_) {
+          showNotice("Không thể kiểm tra trạng thái đăng nhập.");
+        }
+      }
 
+      async function loadFiles({ reset = false } = {}) {
+        if (state.loading) return;
+        state.loading = true;
+        loadMoreButton.disabled = true;
+        showNotice("");
 
+        if (reset) {
+          state.files = [];
+          state.cursor = null;
+          render();
+        }
 
-      Array.prototype.remove = function (from, to) {
-        var rest = this.slice((to || from) + 1 || this.length);
-        this.length = from < 0 ? this.length + from : from;
-        return this.push.apply(this, rest);
-      };
-      var requestOptions = {
-        method: 'GET',
-        redirect: 'follow',
-        //include authorization credientials
-        credentials: 'include'
+        const params = new URLSearchParams({ limit: "100" });
+        if (state.cursor) params.set("cursor", state.cursor);
+        if (state.search.trim()) params.set("prefix", state.search.trim());
 
-      };
+        try {
+          const response = await api(`/api/manage/list?${params.toString()}`);
+          const result = await response.json();
+          const incoming = (result.keys || []).map(normalizeFile);
 
+          const known = new Set(state.files.map(file => file.name));
+          incoming.forEach(file => {
+            if (!known.has(file.name)) state.files.push(file);
+          });
 
-        fetch("./api/manage/list?limit=100", requestOptions)
-        //判断是否需要登录
-        .then(response => {
-          if (response.status == 401) {
-            alert("请先登录");
-            window.location.href = "./api/manage/login";
-          }
-          else {
-            return response;
-          }
-        })
-        .then(response => response.json())
-        .then(result => {
-          this.tableData = result.keys || [];
-          this.nextCursor = result.list_complete ? null : result.cursor;
-          console.log(result);
-          this.Number = this.tableData.length;
-        })
-        .catch(error => { alert("An error occurred while synchronizing data with the server, please check the network connection"); console.log('error', error) });
+          state.cursor = result.list_complete ? null : result.cursor;
+          loadMoreButton.hidden = !state.cursor;
+          render();
+        } catch (error) {
+          showNotice(error.message || "Không thể tải dữ liệu từ máy chủ.");
+        } finally {
+          state.loading = false;
+          loadMoreButton.disabled = false;
+        }
+      }
 
-    }
-  })
+      function filteredFiles() {
+        let files = [...state.files];
 
-</script><!-- Hotjar Tracking Code -->
-<script>
-    (function (h, o, t, j, a, r) {
-      h.hj = h.hj || function () { (h.hj.q = h.hj.q || []).push(arguments) };
-      h._hjSettings = { hjid: 2531461, hjsv: 6 };
-      a = o.getElementsByTagName('head')[0];
-      r = o.createElement('script'); r.async = 1;
-      r.src = t + h._hjSettings.hjid + j + h._hjSettings.hjsv;
-      a.appendChild(r);
-    })(window, document, 'https://static.hotjar.com/c/hotjar-', '.js?sv=');
-</script>
-<script type="text/javascript">
-  (function (c, l, a, r, i, t, y) {
-    c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-    t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i;
-    y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-  })(window, document, "clarity", "script", "7t5ai7agat");
-</script>
+        if (state.search.trim()) {
+          const query = state.search.trim().toLowerCase();
+          files = files.filter(file =>
+            file.name.toLowerCase().includes(query) ||
+            displayName(file).toLowerCase().includes(query)
+          );
+        }
 
+        if (state.filter !== "all") {
+          files = files.filter(file => statusOf(file) === state.filter);
+        }
+
+        files.sort((a, b) => {
+          if (state.sort === "oldest") return timestampOf(a) - timestampOf(b);
+          if (state.sort === "name") return displayName(a).localeCompare(displayName(b), "vi");
+          return timestampOf(b) - timestampOf(a);
+        });
+
+        return files;
+      }
+
+      function updateStats() {
+        document.getElementById("statTotal").textContent = state.files.length;
+        document.getElementById("statNeutral").textContent = state.files.filter(file => statusOf(file) === "none").length;
+        document.getElementById("statWhite").textContent = state.files.filter(file => statusOf(file) === "white").length;
+        document.getElementById("statBlock").textContent = state.files.filter(file => statusOf(file) === "block").length;
+      }
+
+      function previewMarkup(file) {
+        const type = mediaType(file);
+        const url = fileUrl(file);
+
+        if (type === "image") {
+          return `<img src="${url}" alt="${escapeHtml(displayName(file))}" loading="lazy">`;
+        }
+        if (type === "video") {
+          return `<video src="${url}" muted preload="metadata"></video>`;
+        }
+
+        return `<div class="file-placeholder"><strong>${escapeHtml(extensionOf(file.name).toUpperCase() || "FILE")}</strong><span>Nhấn để mở file</span></div>`;
+      }
+
+      function statusLabel(file) {
+        const status = statusOf(file);
+        if (status === "white") return "Danh sách trắng";
+        if (status === "block") return "Danh sách đen";
+        return "Chưa phân loại";
+      }
+
+      function cardMarkup(file) {
+        const status = statusOf(file);
+        const type = mediaType(file);
+        return `
+          <article class="card" data-name="${escapeHtml(file.name)}">
+            <div class="preview" data-action="preview" data-name="${escapeHtml(file.name)}">
+              ${previewMarkup(file)}
+              <span class="badge ${status}">${statusLabel(file)}</span>
+            </div>
+            <div class="card-body">
+              <div>
+                <h2 class="title" title="${escapeHtml(displayName(file))}">${escapeHtml(displayName(file))}</h2>
+                <div class="meta">
+                  <span>${escapeHtml(type === "file" ? "Tệp" : type)}</span>
+                  <span>${formatDate(timestampOf(file))}</span>
+                </div>
+                <div class="link-line" title="${escapeHtml(shortLink(file))}">${escapeHtml(shortLink(file))}</div>
+              </div>
+
+              <div class="card-actions">
+                <button class="card-action" data-action="copy" data-name="${escapeHtml(file.name)}">Sao chép link</button>
+                <button class="card-action" data-action="rename" data-name="${escapeHtml(file.name)}">Đổi tên</button>
+                <button class="card-action" data-action="white" data-name="${escapeHtml(file.name)}">Danh sách trắng</button>
+                <button class="card-action" data-action="block" data-name="${escapeHtml(file.name)}">Danh sách đen</button>
+                <button class="card-action" data-action="open" data-name="${escapeHtml(file.name)}">Mở file</button>
+                <button class="card-action danger" data-action="delete" data-name="${escapeHtml(file.name)}">Xóa bản ghi</button>
+              </div>
+            </div>
+          </article>
+        `;
+      }
+
+      function render() {
+        updateStats();
+
+        const files = filteredFiles();
+        fileGrid.classList.toggle("is-list", state.view === "list");
+        gridViewButton.classList.toggle("is-active", state.view === "grid");
+        listViewButton.classList.toggle("is-active", state.view === "list");
+
+        fileGrid.innerHTML = files.map(cardMarkup).join("");
+        emptyState.classList.toggle("is-visible", files.length === 0 && !state.loading);
+      }
+
+      function findFile(name) {
+        return state.files.find(file => file.name === name);
+      }
+
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (_) {
+          const textarea = document.createElement("textarea");
+          textarea.value = text;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+        }
+      }
+
+      async function setListType(file, type) {
+        const endpoint = type === "white" ? "white" : "block";
+        const label = type === "white" ? "danh sách trắng" : "danh sách đen";
+
+        if (!confirm(`Đưa file này vào ${label}?`)) return;
+
+        try {
+          const response = await api(`/api/manage/${endpoint}/${encodeURIComponent(file.name)}`);
+          const text = await response.text();
+          const parsed = safeMetadata(text);
+          file.metadata = Object.keys(parsed).length ? parsed : {
+            ...file.metadata,
+            ListType: type === "white" ? "White" : "Block"
+          };
+          render();
+          toast(`Đã cập nhật ${label}.`);
+        } catch (error) {
+          toast(error.message || "Không thể cập nhật trạng thái.", "error");
+        }
+      }
+
+      async function renameFile(file) {
+        const current = displayName(file);
+        const value = prompt("Tên hiển thị mới:", current);
+        if (value === null) return;
+
+        const trimmed = value.trim();
+        if (!trimmed) {
+          toast("Tên file không được để trống.", "error");
+          return;
+        }
+        if (trimmed.length > 64) {
+          toast("Tên file không được vượt quá 64 ký tự.", "error");
+          return;
+        }
+
+        try {
+          const response = await api(`/api/manage/editName/${encodeURIComponent(file.name)}?newName=${encodeURIComponent(trimmed)}`);
+          const result = await response.json();
+
+          if (!result.success) throw new Error("Máy chủ từ chối đổi tên.");
+
+          file.metadata.fileName = trimmed;
+          render();
+          toast("Đã đổi tên hiển thị.");
+        } catch (error) {
+          toast(error.message || "Không thể đổi tên.", "error");
+        }
+      }
+
+      async function deleteRecord(file) {
+        const accepted = confirm(
+          "Xóa bản ghi này khỏi dashboard?\n\nFile gốc trên Telegram không bị xóa. Muốn chặn truy cập, hãy dùng Danh sách đen."
+        );
+        if (!accepted) return;
+
+        try {
+          await api(`/api/manage/delete/${encodeURIComponent(file.name)}`);
+          state.files = state.files.filter(item => item.name !== file.name);
+          render();
+          toast("Đã xóa bản ghi.");
+        } catch (error) {
+          toast(error.message || "Không thể xóa bản ghi.", "error");
+        }
+      }
+
+      function openPreview(file) {
+        const type = mediaType(file);
+        const url = fileUrl(file);
+        modalContent.innerHTML = "";
+
+        if (type === "image") {
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = displayName(file);
+          modalContent.appendChild(img);
+        } else if (type === "video") {
+          const video = document.createElement("video");
+          video.src = url;
+          video.controls = true;
+          video.autoplay = true;
+          modalContent.appendChild(video);
+        } else {
+          window.open(url, "_blank", "noopener");
+          return;
+        }
+
+        previewModal.classList.add("is-visible");
+      }
+
+      fileGrid.addEventListener("click", async event => {
+        const target = event.target.closest("[data-action]");
+        if (!target) return;
+
+        const file = findFile(target.dataset.name);
+        if (!file) return;
+
+        const action = target.dataset.action;
+        if (action === "copy") {
+          await copyText(shortLink(file));
+          toast("Đã sao chép liên kết.");
+        } else if (action === "rename") {
+          renameFile(file);
+        } else if (action === "white") {
+          setListType(file, "white");
+        } else if (action === "block") {
+          setListType(file, "block");
+        } else if (action === "delete") {
+          deleteRecord(file);
+        } else if (action === "open") {
+          window.open(fileUrl(file), "_blank", "noopener");
+        } else if (action === "preview") {
+          openPreview(file);
+        }
+      });
+
+      document.querySelectorAll("[data-filter]").forEach(button => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll("[data-filter]").forEach(item => item.classList.remove("is-active"));
+          button.classList.add("is-active");
+          state.filter = button.dataset.filter;
+          render();
+        });
+      });
+
+      searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          state.search = searchInput.value;
+          loadFiles({ reset: true });
+        }, 350);
+      });
+
+      sortSelect.addEventListener("change", () => {
+        state.sort = sortSelect.value;
+        render();
+      });
+
+      gridViewButton.addEventListener("click", () => {
+        state.view = "grid";
+        localStorage.setItem("bbcAdminView", "grid");
+        render();
+      });
+
+      listViewButton.addEventListener("click", () => {
+        state.view = "list";
+        localStorage.setItem("bbcAdminView", "list");
+        render();
+      });
+
+      refreshButton.addEventListener("click", () => loadFiles({ reset: true }));
+      loadMoreButton.addEventListener("click", () => loadFiles());
+
+      logoutButton.addEventListener("click", () => {
+        location.href = "/api/manage/logout";
+      });
+
+      modalClose.addEventListener("click", () => {
+        previewModal.classList.remove("is-visible");
+        modalContent.innerHTML = "";
+      });
+
+      previewModal.addEventListener("click", event => {
+        if (event.target === previewModal) modalClose.click();
+      });
+
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") modalClose.click();
+      });
+
+      checkLogin();
+      loadFiles({ reset: true });
+      render();
+    })();
+  </script>
+</body>
 </html>
