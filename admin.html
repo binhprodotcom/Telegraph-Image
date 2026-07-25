@@ -794,6 +794,137 @@
       .album-panel-head { align-items: flex-start; flex-direction: column; }
     }
 
+
+    .action-dialog {
+      width: min(520px, calc(100% - 28px));
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 25px;
+      color: var(--text);
+      background: #171717;
+      box-shadow: 0 30px 100px rgba(0,0,0,.62);
+    }
+
+    .action-dialog::backdrop {
+      background: rgba(0,0,0,.74);
+      backdrop-filter: blur(7px);
+    }
+
+    .action-dialog-form { padding: 28px; }
+
+    .action-dialog-head {
+      display: grid;
+      grid-template-columns: 48px minmax(0,1fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .action-dialog-icon {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border: 1px solid rgba(244,182,92,.28);
+      border-radius: 15px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      font-size: 21px;
+      font-weight: 800;
+    }
+
+    .action-dialog.is-danger .action-dialog-icon {
+      border-color: rgba(255,119,119,.28);
+      color: #ff9d9d;
+      background: rgba(255,119,119,.08);
+    }
+
+    .action-dialog h3 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -.035em;
+    }
+
+    .action-dialog-message {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.58;
+      white-space: pre-line;
+    }
+
+    .action-dialog-field {
+      display: grid;
+      gap: 7px;
+      margin-top: 22px;
+    }
+
+    .action-dialog-field[hidden] { display: none; }
+
+    .action-dialog-field > span {
+      color: rgba(247,242,233,.78);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .action-dialog-field input,
+    .action-dialog-field select {
+      width: 100%;
+      min-height: 50px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      outline: none;
+      color: var(--text);
+      background: rgba(255,255,255,.05);
+    }
+
+    .action-dialog-field input:focus,
+    .action-dialog-field select:focus {
+      border-color: rgba(244,182,92,.68);
+      box-shadow: 0 0 0 4px rgba(244,182,92,.09);
+    }
+
+    .action-dialog-error {
+      min-height: 18px;
+      margin-top: 10px;
+      color: var(--danger);
+      font-size: 12px;
+    }
+
+    .action-dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .action-dialog-actions button {
+      min-height: 44px;
+      cursor: pointer;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255,255,255,.055);
+      font-weight: 720;
+    }
+
+    .action-dialog-actions .action-confirm {
+      border-color: transparent;
+      color: #17120a;
+      background: var(--accent);
+    }
+
+    .action-dialog.is-danger .action-dialog-actions .action-confirm {
+      color: #fff;
+      background: #d95f5f;
+    }
+
+    .action-dialog-actions button:disabled {
+      cursor: wait;
+      opacity: .58;
+    }
+
   </style>
 </head>
 <body>
@@ -857,7 +988,7 @@
 
       <div class="stats">
         <div class="stat"><strong id="statTotal">0</strong><span>Bản ghi đã tải</span></div>
-        <div class="stat"><strong id="statNeutral">0</strong><span>Chưa phân loại</span></div>
+        <div class="stat"><strong id="statNeutral">0</strong><span>Trạng thái bình thường</span></div>
         <div class="stat"><strong id="statWhite">0</strong><span>Danh sách trắng</span></div>
         <div class="stat"><strong id="statBlock">0</strong><span>Danh sách đen</span></div>
       </div>
@@ -895,7 +1026,7 @@
 
       <div class="segmented" aria-label="Bộ lọc">
         <button class="segment is-active" data-filter="all" type="button">Tất cả</button>
-        <button class="segment" data-filter="none" type="button">Chưa phân loại</button>
+        <button class="segment" data-filter="none" type="button">Bình thường</button>
         <button class="segment" data-filter="white" type="button">Danh sách trắng</button>
         <button class="segment" data-filter="block" type="button">Danh sách đen</button>
       </div>
@@ -925,6 +1056,32 @@
 
   <div class="toast-wrap" id="toastWrap"></div>
 
+
+  <dialog class="action-dialog" id="actionDialog">
+    <form class="action-dialog-form" id="actionDialogForm">
+      <div class="action-dialog-head">
+        <div class="action-dialog-icon" id="actionDialogIcon" aria-hidden="true">+</div>
+        <div>
+          <h3 id="actionDialogTitle">Thao tác</h3>
+          <p class="action-dialog-message" id="actionDialogMessage"></p>
+        </div>
+      </div>
+
+      <label class="action-dialog-field" id="actionDialogField" hidden>
+        <span id="actionDialogLabel">Nội dung</span>
+        <input id="actionDialogInput" type="text" maxlength="64" autocomplete="off">
+        <select id="actionDialogSelect" hidden></select>
+      </label>
+
+      <div class="action-dialog-error" id="actionDialogError" role="alert"></div>
+
+      <div class="action-dialog-actions">
+        <button id="actionDialogCancel" type="button">Hủy</button>
+        <button class="action-confirm" id="actionDialogConfirm" type="submit">Xác nhận</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-label="Xem trước file">
     <button class="modal-close" id="modalClose" type="button" aria-label="Đóng">×</button>
     <div id="modalContent"></div>
@@ -935,6 +1092,7 @@
       "use strict";
 
       const AUTH_KEY = "bbcAdminBasicAuth";
+      const PENDING_ALBUMS_KEY = "bbcPendingAlbums";
       const PAGE_SIZE = 24;
       const state = {
         files: [],
@@ -983,9 +1141,144 @@
       const bulkAlbumSelect = document.getElementById("bulkAlbumSelect");
       const bulkMoveButton = document.getElementById("bulkMoveButton");
       const clearSelectionButton = document.getElementById("clearSelectionButton");
+      const actionDialog = document.getElementById("actionDialog");
+      const actionDialogForm = document.getElementById("actionDialogForm");
+      const actionDialogIcon = document.getElementById("actionDialogIcon");
+      const actionDialogTitle = document.getElementById("actionDialogTitle");
+      const actionDialogMessage = document.getElementById("actionDialogMessage");
+      const actionDialogField = document.getElementById("actionDialogField");
+      const actionDialogLabel = document.getElementById("actionDialogLabel");
+      const actionDialogInput = document.getElementById("actionDialogInput");
+      const actionDialogSelect = document.getElementById("actionDialogSelect");
+      const actionDialogError = document.getElementById("actionDialogError");
+      const actionDialogCancel = document.getElementById("actionDialogCancel");
+      const actionDialogConfirm = document.getElementById("actionDialogConfirm");
 
       let searchTimer = null;
       let mediaObserver = null;
+      let actionDialogResolver = null;
+
+      function readPendingAlbums() {
+        try {
+          const value = JSON.parse(sessionStorage.getItem(PENDING_ALBUMS_KEY) || "[]");
+          return Array.isArray(value) ? value.filter(album => album?.id && album?.name) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function writePendingAlbums(albums) {
+        sessionStorage.setItem(PENDING_ALBUMS_KEY, JSON.stringify(albums.slice(0, 100)));
+      }
+
+      function rememberPendingAlbum(album) {
+        const pending = readPendingAlbums().filter(item => item.id !== album.id);
+        pending.push(album);
+        writePendingAlbums(pending);
+      }
+
+      function forgetPendingAlbum(albumId) {
+        writePendingAlbums(readPendingAlbums().filter(item => item.id !== albumId));
+      }
+
+      function mergeServerAndPendingAlbums(serverAlbums) {
+        const serverIds = new Set(serverAlbums.map(album => album.id));
+        const unresolved = readPendingAlbums().filter(album => !serverIds.has(album.id));
+        writePendingAlbums(unresolved);
+        const merged = new Map();
+        [...serverAlbums, ...unresolved].forEach(album => merged.set(album.id, album));
+        return [...merged.values()].sort((a, b) =>
+          (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)
+          || a.name.localeCompare(b.name, "vi")
+        );
+      }
+
+      function upsertLocalAlbum(album) {
+        state.albums = [...state.albums.filter(item => item.id !== album.id), album]
+          .sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0) || a.name.localeCompare(b.name, "vi"));
+        rememberPendingAlbum(album);
+        renderAlbums();
+      }
+
+      function closeActionDialog(result) {
+        if (actionDialog.open) actionDialog.close();
+        const resolve = actionDialogResolver;
+        actionDialogResolver = null;
+        resolve?.(result);
+      }
+
+      function openActionDialog({
+        title,
+        message = "",
+        icon = "+",
+        fieldType = "none",
+        label = "",
+        value = "",
+        options = [],
+        confirmText = "Xác nhận",
+        danger = false,
+        required = false,
+      }) {
+        actionDialog.classList.toggle("is-danger", danger);
+        actionDialogIcon.textContent = icon;
+        actionDialogTitle.textContent = title;
+        actionDialogMessage.textContent = message;
+        actionDialogLabel.textContent = label;
+        actionDialogError.textContent = "";
+        actionDialogConfirm.textContent = confirmText;
+        actionDialogConfirm.disabled = false;
+        actionDialogField.hidden = fieldType === "none";
+        actionDialogInput.hidden = fieldType !== "text";
+        actionDialogSelect.hidden = fieldType !== "select";
+        actionDialogInput.required = required && fieldType === "text";
+
+        if (fieldType === "text") {
+          actionDialogInput.value = value;
+          actionDialogInput.maxLength = 64;
+        }
+
+        if (fieldType === "select") {
+          actionDialogSelect.innerHTML = options.map(option =>
+            `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
+          ).join("");
+          actionDialogSelect.value = value;
+        }
+
+        actionDialog.showModal();
+        setTimeout(() => {
+          if (fieldType === "text") {
+            actionDialogInput.focus();
+            actionDialogInput.select();
+          } else if (fieldType === "select") {
+            actionDialogSelect.focus();
+          } else {
+            actionDialogConfirm.focus();
+          }
+        }, 50);
+
+        return new Promise(resolve => { actionDialogResolver = resolve; });
+      }
+
+      actionDialogForm.addEventListener("submit", event => {
+        event.preventDefault();
+        const fieldType = actionDialogInput.hidden ? (actionDialogSelect.hidden ? "none" : "select") : "text";
+        const value = fieldType === "text" ? actionDialogInput.value.trim()
+          : fieldType === "select" ? actionDialogSelect.value
+          : true;
+
+        if (fieldType === "text" && actionDialogInput.required && !value) {
+          actionDialogError.textContent = "Nội dung không được để trống.";
+          actionDialogInput.focus();
+          return;
+        }
+        closeActionDialog({ confirmed: true, value });
+      });
+
+      actionDialogCancel.addEventListener("click", () => closeActionDialog({ confirmed: false, value: null }));
+      actionDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        closeActionDialog({ confirmed: false, value: null });
+      });
 
       function encodeBasicAuth(user, pass) {
         const bytes = new TextEncoder().encode(`${user}:${pass}`);
@@ -1157,8 +1450,9 @@
       async function loadAlbums() {
         const response = await api("/api/manage/albums");
         const data = await response.json();
-        state.albums = data.albums || [];
+        state.albums = mergeServerAndPendingAlbums(data.albums || []);
         renderAlbums();
+        return state.albums;
       }
 
       function renderAlbums() {
@@ -1268,7 +1562,7 @@
         const status = statusOf(file);
         if (status === "white") return "Danh sách trắng";
         if (status === "block") return "Danh sách đen";
-        return "Chưa phân loại";
+        return "Bình thường";
       }
 
       function cardMarkup(file) {
@@ -1374,7 +1668,16 @@
       async function setListType(file, type) {
         const endpoint = type === "white" ? "white" : "block";
         const label = type === "white" ? "danh sách trắng" : "danh sách đen";
-        if (!confirm(`Đưa file này vào ${label}?`)) return;
+        const answer = await openActionDialog({
+          title: type === "white" ? "Cho phép ưu tiên" : "Chặn file",
+          message: type === "white"
+            ? `Đưa “${displayName(file)}” vào danh sách trắng?`
+            : `Đưa “${displayName(file)}” vào danh sách đen? Link file sẽ bị vô hiệu hóa.`,
+          icon: type === "white" ? "✓" : "!",
+          confirmText: type === "white" ? "Thêm danh sách trắng" : "Chặn file",
+          danger: type === "block",
+        });
+        if (!answer.confirmed) return;
         try {
           const response = await api(`/api/manage/${endpoint}/${encodeURIComponent(file.name)}`);
           file.metadata = safeMetadata(await response.json());
@@ -1384,10 +1687,18 @@
       }
 
       async function renameFile(file) {
-        const value = prompt("Tên hiển thị mới:", displayName(file));
-        if (value === null) return;
-        const trimmed = value.trim();
-        if (!trimmed) return toast("Tên file không được để trống.", "error");
+        const answer = await openActionDialog({
+          title: "Đổi tên hiển thị",
+          message: "Tên này chỉ dùng trong dashboard; link gốc của file không thay đổi.",
+          icon: "Aa",
+          fieldType: "text",
+          label: "Tên hiển thị mới",
+          value: displayName(file),
+          confirmText: "Lưu tên",
+          required: true,
+        });
+        if (!answer.confirmed) return;
+        const trimmed = String(answer.value || "").trim();
         if (trimmed.length > 64) return toast("Tên file không được vượt quá 64 ký tự.", "error");
         try {
           const response = await api(`/api/manage/editName/${encodeURIComponent(file.name)}?newName=${encodeURIComponent(trimmed)}`);
@@ -1399,7 +1710,14 @@
       }
 
       async function deleteRecord(file) {
-        if (!confirm("Xóa bản ghi này khỏi dashboard?\n\nFile gốc trên Telegram không bị xóa. Muốn chặn truy cập, hãy dùng Danh sách đen.")) return;
+        const answer = await openActionDialog({
+          title: "Xóa bản ghi",
+          message: "Bản ghi sẽ biến mất khỏi dashboard nhưng file gốc trên Telegram không bị xóa. Muốn vô hiệu hóa link, hãy dùng Danh sách đen.",
+          icon: "×",
+          confirmText: "Xóa bản ghi",
+          danger: true,
+        });
+        if (!answer.confirmed) return;
         try {
           await api(`/api/manage/delete/${encodeURIComponent(file.name)}`);
           state.files = state.files.filter(item => item.name !== file.name);
@@ -1439,9 +1757,21 @@
         } else if (action === "copy-short") {
           await copyText(shortLink(file)); toast("Đã sao chép link ngắn.");
         } else if (action === "move-one") {
-          const targetId = prompt(`Nhập ID album đích:\n${["unclassified", ...state.albums.map(a => a.id)].join("\n")}`, fileAlbumId(file));
-          if (!targetId) return;
-          try { await moveFiles([file.name], targetId.trim()); toast("Đã chuyển album."); await loadFiles({ reset: true }); }
+          const answer = await openActionDialog({
+            title: "Chuyển album",
+            message: `Chọn album mới cho “${displayName(file)}”. Link ảnh sẽ không thay đổi.`,
+            icon: "→",
+            fieldType: "select",
+            label: "Album đích",
+            value: fileAlbumId(file),
+            options: [
+              { value: "unclassified", label: "Chưa phân loại" },
+              ...state.albums.map(album => ({ value: album.id, label: album.name }))
+            ],
+            confirmText: "Chuyển ảnh",
+          });
+          if (!answer.confirmed) return;
+          try { await moveFiles([file.name], answer.value); toast("Đã chuyển album."); await loadFiles({ reset: true }); }
           catch (error) { toast(error.message, "error"); }
         } else if (action === "rename") renameFile(file);
         else if (action === "white") setListType(file, "white");
@@ -1460,35 +1790,73 @@
       });
 
       createAlbumButton.addEventListener("click", async () => {
-        const name = prompt("Tên album mới:");
-        if (!name?.trim()) return;
+        const answer = await openActionDialog({
+          title: "Tạo album mới",
+          message: "Album mới sẽ xuất hiện ở trang upload và dashboard. Có thể mất vài giây để Cloudflare KV đồng bộ toàn mạng.",
+          icon: "+",
+          fieldType: "text",
+          label: "Tên album",
+          value: "",
+          confirmText: "Tạo album",
+          required: true,
+        });
+        if (!answer.confirmed) return;
         try {
-          await api("/api/manage/albums", {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name })
+          const response = await api("/api/manage/albums", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: answer.value })
           });
-          await loadAlbums();
-          toast("Đã tạo album.");
+          const data = await response.json();
+          if (!data.album) throw new Error("Máy chủ không trả về album vừa tạo.");
+          upsertLocalAlbum(data.album);
+          state.activeAlbum = data.album.id;
+          renderAlbums();
+          toast(`Đã tạo album “${data.album.name}”.`);
+          setTimeout(() => loadAlbums().catch(() => {}), 1800);
+          setTimeout(() => loadAlbums().catch(() => {}), 6500);
         } catch (error) { toast(error.message, "error"); }
       });
 
       renameAlbumButton.addEventListener("click", async () => {
         const album = state.albums.find(item => item.id === state.activeAlbum);
         if (!album) return;
-        const name = prompt("Tên album mới:", album.name);
-        if (!name?.trim()) return;
+        const answer = await openActionDialog({
+          title: "Đổi tên album",
+          message: "ID album và toàn bộ link ảnh được giữ nguyên.",
+          icon: "Aa",
+          fieldType: "text",
+          label: "Tên album mới",
+          value: album.name,
+          confirmText: "Lưu tên",
+          required: true,
+        });
+        if (!answer.confirmed) return;
         try {
-          await api("/api/manage/albums", {
-            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: album.id, name })
+          const response = await api("/api/manage/albums", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: album.id, name: answer.value })
           });
-          await loadAlbums();
+          const data = await response.json();
+          const updated = data.album || { ...album, name: answer.value, updatedAt: Date.now() };
+          upsertLocalAlbum(updated);
           toast("Đã đổi tên album.");
+          setTimeout(() => loadAlbums().catch(() => {}), 1800);
         } catch (error) { toast(error.message, "error"); }
       });
 
       deleteAlbumButton.addEventListener("click", async () => {
         const album = state.albums.find(item => item.id === state.activeAlbum);
         if (!album) return;
-        if (!confirm(`Xóa album “${album.name}”?\n\nToàn bộ ảnh trong album sẽ được chuyển về Chưa phân loại. Link ảnh không đổi.`)) return;
+        const answer = await openActionDialog({
+          title: `Xóa album “${album.name}”`,
+          message: "Toàn bộ ảnh trong album sẽ được chuyển về Chưa phân loại. File và link ảnh không bị xóa.",
+          icon: "×",
+          confirmText: "Xóa album",
+          danger: true,
+        });
+        if (!answer.confirmed) return;
         deleteAlbumButton.disabled = true;
         deleteAlbumButton.textContent = "Đang chuyển ảnh…";
         try {
@@ -1500,7 +1868,10 @@
             complete = data.complete;
             moved += data.moved || 0;
           }
+          forgetPendingAlbum(album.id);
+          state.albums = state.albums.filter(item => item.id !== album.id);
           state.activeAlbum = "all";
+          renderAlbums();
           await loadAlbums();
           await loadFiles({ reset: true });
           toast(`Đã xóa album và chuyển ${moved} ảnh về Chưa phân loại.`);
@@ -1509,7 +1880,13 @@
       });
 
       rebuildIndexButton.addEventListener("click", async () => {
-        if (!confirm("Đồng bộ toàn bộ ảnh cũ vào hệ thống album? Quá trình có thể mất một lúc nếu có nhiều ảnh.")) return;
+        const answer = await openActionDialog({
+          title: "Đồng bộ ảnh cũ",
+          message: "Hệ thống sẽ quét các ảnh đã tải trước đây, tạo chỉ mục album và đưa ảnh chưa có album vào Chưa phân loại. Link ảnh không đổi.",
+          icon: "↻",
+          confirmText: "Bắt đầu đồng bộ",
+        });
+        if (!answer.confirmed) return;
         rebuildIndexButton.disabled = true;
         let cursor = null;
         let total = 0;

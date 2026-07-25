@@ -66,8 +66,21 @@ export async function ensureDefaultAlbums(env) {
 export async function listAlbums(env) {
   if (!env.img_url) return [];
   const result = await env.img_url.list({ prefix: ALBUM_KEY_PREFIX, limit: 1000 });
-  return result.keys
-    .map(key => normalizeAlbumRecord(key.metadata, key.name.slice(ALBUM_KEY_PREFIX.length)))
+  const albums = await Promise.all(result.keys.map(async key => {
+    const fallbackId = key.name.slice(ALBUM_KEY_PREFIX.length);
+    let record = normalizeAlbumRecord(key.metadata, fallbackId);
+    if (record) return record;
+
+    try {
+      const stored = await env.img_url.get(key.name, { type: 'json' });
+      record = normalizeAlbumRecord(stored, fallbackId);
+    } catch {
+      record = null;
+    }
+    return record;
+  }));
+
+  return albums
     .filter(Boolean)
     .sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name, 'vi'));
 }
