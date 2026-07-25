@@ -1,12 +1,12 @@
-import { LIST_TYPE, updateMetadata } from "../../../utils/metadata.js";
-import { jsonResponse } from "../../../utils/http.js";
+import { LIST_TYPE, updateMetadata } from '../../../utils/metadata.js';
+import { jsonResponse } from '../../../utils/http.js';
+import { refreshFileAlbumIndex } from '../../../utils/albums.js';
 
 export async function onRequest(context) {
-    const { env, params } = context;
-    const metadata = await updateMetadata(env, params.id, current => {
-        current.ListType = LIST_TYPE.BLOCK;
-        return current;
-    });
-
-    return jsonResponse(metadata);
+  const { env, params } = context;
+  const metadata = await updateMetadata(env, params.id, current => {
+    current.ListType = LIST_TYPE.BLOCK;
+    return current;
+  });
+  return jsonResponse(await refreshFileAlbumIndex(env, params.id, metadata));
 }

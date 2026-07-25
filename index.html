@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111111">
   <meta name="description" content="BBC Image — tải ảnh và video lên kho lưu trữ riêng.">
-  <meta name="generator" content="BBC Image UI 2.2">
+  <meta name="generator" content="BBC Image Albums 3.0">
   <title>BBC Image</title>
   <link rel="icon" href="/favicon.ico">
   <style>
@@ -568,6 +568,63 @@
         animation-iteration-count: 1 !important;
       }
     }
+
+    .album-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .album-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .album-field span {
+      color: rgba(247,242,233,.72);
+      font-size: 12px;
+      font-weight: 680;
+    }
+
+    .album-field select {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 38px 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      outline: none;
+      color: var(--text);
+      background: #1b1b1b;
+    }
+
+    .album-field select:disabled { opacity: .55; }
+
+    .album-login-button {
+      min-height: 46px;
+      cursor: pointer;
+      padding: 0 17px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--text);
+      background: rgba(255,255,255,.055);
+      font-weight: 700;
+    }
+
+    .album-login-button.is-ready {
+      color: var(--success);
+      border-color: rgba(126,217,155,.25);
+    }
+
+    @media (max-width: 620px) {
+      .album-toolbar { grid-template-columns: 1fr; }
+    }
+
   </style>
 </head>
 <body>
@@ -608,6 +665,16 @@
       </article>
 
       <section class="uploader" aria-labelledby="upload-title">
+
+        <div class="album-toolbar">
+          <label class="album-field">
+            <span>Lưu vào album</span>
+            <select id="albumSelect" disabled>
+              <option value="unclassified">Chưa phân loại</option>
+            </select>
+          </label>
+          <button class="album-login-button" id="albumLoginButton" type="button">Đăng nhập để chọn album</button>
+        </div>
         <label class="dropzone" id="dropzone" for="fileInput">
           <span class="upload-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
@@ -672,6 +739,7 @@
       "use strict";
 
       const MAX_FILE_SIZE = 20 * 1024 * 1024;
+      const AUTH_KEY = "bbcUploadBasicAuth";
       const ALLOWED_TYPES = new Set([
         "image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4"
       ]);
@@ -679,7 +747,9 @@
       const state = {
         items: [],
         uploading: false,
-        authHeader: ""
+        authHeader: sessionStorage.getItem(AUTH_KEY) || "",
+        albums: [],
+        albumId: "unclassified"
       };
 
       let authResolver = null;
@@ -694,6 +764,8 @@
       const addMoreButton = document.getElementById("addMoreButton");
       const clearButton = document.getElementById("clearButton");
       const globalMessage = document.getElementById("globalMessage");
+      const albumSelect = document.getElementById("albumSelect");
+      const albumLoginButton = document.getElementById("albumLoginButton");
       const authDialog = document.getElementById("authDialog");
       const authForm = document.getElementById("authForm");
       const authUser = document.getElementById("authUser");
@@ -729,7 +801,6 @@
 
       function addFiles(fileCollection) {
         if (state.uploading) return;
-
         const existing = new Set(state.items.map(item => fingerprint(item.file)));
         const files = Array.from(fileCollection || []);
         let added = 0;
@@ -749,24 +820,35 @@
             url: "",
             previewUrl: URL.createObjectURL(file)
           });
-
           existing.add(key);
           error ? rejected++ : added++;
         });
 
         render();
+        if (added > 0 && rejected === 0) setMessage(`Đã thêm ${added} file.`);
+        else if (added > 0 || rejected > 0) setMessage(`Đã thêm ${added} file, từ chối ${rejected} file không hợp lệ.`, rejected ? "error" : "");
+      }
 
-        if (added > 0 && rejected === 0) {
-          setMessage(`Đã thêm ${added} file.`);
-        } else if (added > 0 || rejected > 0) {
-          setMessage(`Đã thêm ${added} file, từ chối ${rejected} file không hợp lệ.`, rejected ? "error" : "");
-        }
+      function renderAlbums() {
+        const previous = state.albumId;
+        albumSelect.innerHTML = '<option value="unclassified">Chưa phân loại</option>';
+        state.albums.forEach(album => {
+          const option = document.createElement("option");
+          option.value = album.id;
+          option.textContent = album.name;
+          albumSelect.appendChild(option);
+        });
+        albumSelect.disabled = !state.authHeader;
+        albumSelect.value = [...albumSelect.options].some(option => option.value === previous) ? previous : "unclassified";
+        state.albumId = albumSelect.value;
+
+        albumLoginButton.textContent = state.authHeader ? "Đăng xuất upload" : "Đăng nhập để chọn album";
+        albumLoginButton.classList.toggle("is-ready", Boolean(state.authHeader));
       }
 
       function render() {
         queue.hidden = state.items.length === 0;
         fileList.innerHTML = "";
-
         const successful = state.items.filter(item => item.status === "success").length;
         const eligible = state.items.filter(item => item.status !== "error").length;
         queueSummary.textContent = `${state.items.length} file · ${successful}/${eligible} hoàn tất`;
@@ -777,7 +859,6 @@
 
           const thumb = document.createElement("div");
           thumb.className = "thumb";
-
           if (item.file.type.startsWith("image/")) {
             const image = document.createElement("img");
             image.src = item.previewUrl;
@@ -793,34 +874,28 @@
 
           const copy = document.createElement("div");
           copy.className = "file-copy";
-
           const name = document.createElement("div");
           name.className = "file-name";
           name.textContent = item.file.name;
-
           const meta = document.createElement("div");
           meta.className = "file-meta";
           meta.innerHTML = `<span>${formatBytes(item.file.size)}</span><span>${item.file.type}</span>`;
-
           const progress = document.createElement("div");
           progress.className = "progress";
           const progressBar = document.createElement("span");
           progressBar.style.width = `${item.progress}%`;
           progress.appendChild(progressBar);
-
           const resultLink = document.createElement("a");
           resultLink.className = `result-link${item.url ? " is-visible" : ""}`;
           resultLink.href = item.url || "#";
           resultLink.target = "_blank";
           resultLink.rel = "noopener";
           resultLink.textContent = item.url || "";
-
           copy.append(name, meta, progress, resultLink);
 
           const status = document.createElement("div");
           status.className = `file-status${item.status === "success" ? " success" : item.status === "error" ? " error" : ""}`;
           status.textContent = item.message;
-
           row.append(thumb, copy, status);
           fileList.appendChild(row);
         });
@@ -839,27 +914,41 @@
         return `Basic ${btoa(binary)}`;
       }
 
+      async function fetchAlbums(header) {
+        const response = await fetch("/upload", {
+          method: "GET",
+          headers: { Authorization: header },
+          cache: "no-store"
+        });
+        if (response.status === 401) return null;
+        if (!response.ok) throw new Error(`Không thể tải album (${response.status}).`);
+        return response.json();
+      }
+
+      async function restoreAuth() {
+        if (!state.authHeader) return renderAlbums();
+        try {
+          const data = await fetchAlbums(state.authHeader);
+          if (!data) {
+            state.authHeader = "";
+            sessionStorage.removeItem(AUTH_KEY);
+          } else {
+            state.albums = data.albums || [];
+          }
+        } catch {
+          state.authHeader = "";
+          sessionStorage.removeItem(AUTH_KEY);
+        }
+        renderAlbums();
+      }
+
       function askCredentials(message = "") {
         authError.textContent = message;
         authUser.value = "";
         authPass.value = "";
         authDialog.showModal();
         setTimeout(() => authUser.focus(), 50);
-
-        return new Promise(resolve => {
-          authResolver = resolve;
-        });
-      }
-
-      async function verifyCredentials(header) {
-        const formData = new FormData();
-        const response = await fetch("/upload", {
-          method: "POST",
-          headers: { Authorization: header },
-          body: formData,
-          credentials: "same-origin"
-        });
-        return response.status !== 401;
+        return new Promise(resolve => { authResolver = resolve; });
       }
 
       async function ensureCredentials(message = "") {
@@ -870,23 +959,25 @@
       authForm.addEventListener("submit", async event => {
         event.preventDefault();
         authError.textContent = "Đang kiểm tra tài khoản…";
-
         const header = encodeBasicAuth(authUser.value.trim(), authPass.value);
+
         try {
-          const valid = await verifyCredentials(header);
-          if (!valid) {
+          const data = await fetchAlbums(header);
+          if (!data) {
             authError.textContent = "Tên đăng nhập hoặc mật khẩu chưa đúng.";
             authPass.select();
             return;
           }
-
           state.authHeader = header;
+          state.albums = data.albums || [];
+          sessionStorage.setItem(AUTH_KEY, header);
+          renderAlbums();
           authDialog.close();
           const resolve = authResolver;
           authResolver = null;
           resolve?.(true);
-        } catch (_) {
-          authError.textContent = "Không thể kiểm tra tài khoản. Vui lòng thử lại.";
+        } catch (error) {
+          authError.textContent = error.message || "Không thể kiểm tra tài khoản.";
         }
       });
 
@@ -902,6 +993,25 @@
         authCancel.click();
       });
 
+      albumLoginButton.addEventListener("click", async () => {
+        if (state.authHeader) {
+          state.authHeader = "";
+          state.albums = [];
+          state.albumId = "unclassified";
+          sessionStorage.removeItem(AUTH_KEY);
+          renderAlbums();
+          setMessage("Đã đăng xuất tài khoản upload.");
+          return;
+        }
+        await ensureCredentials();
+      });
+
+      albumSelect.addEventListener("change", () => {
+        state.albumId = albumSelect.value;
+        const name = albumSelect.options[albumSelect.selectedIndex]?.textContent || "Chưa phân loại";
+        setMessage(`Ảnh trong hàng đợi sẽ được lưu vào album: ${name}.`);
+      });
+
       async function uploadItem(item) {
         while (true) {
           item.status = "uploading";
@@ -911,25 +1021,27 @@
 
           const formData = new FormData();
           formData.append("file", item.file, item.file.name);
+          formData.append("albumId", state.albumId);
+          formData.append("capturedAt", String(item.file.lastModified || Date.now()));
 
           try {
             item.progress = 45;
             render();
-
             const response = await fetch("/upload", {
               method: "POST",
               headers: state.authHeader ? { Authorization: state.authHeader } : {},
-              body: formData,
-              credentials: "same-origin"
+              body: formData
             });
 
             if (response.status === 401) {
               state.authHeader = "";
+              state.albums = [];
+              sessionStorage.removeItem(AUTH_KEY);
+              renderAlbums();
               item.status = "ready";
               item.message = "Cần đăng nhập lại";
               item.progress = 0;
               render();
-
               const authenticated = await ensureCredentials("Phiên đăng nhập chưa đúng hoặc đã hết hiệu lực.");
               if (!authenticated) throw new Error("Đã hủy đăng nhập.");
               continue;
@@ -937,13 +1049,15 @@
 
             if (!response.ok) {
               let detail = "";
-              try { detail = await response.text(); } catch (_) {}
+              try {
+                const data = await response.json();
+                detail = data.error || "";
+              } catch { detail = await response.text(); }
               throw new Error(detail || `Máy chủ trả về lỗi ${response.status}.`);
             }
 
             item.progress = 82;
             render();
-
             const data = await response.json();
             const src = Array.isArray(data) ? data[0]?.src : data?.src;
             if (!src) throw new Error("Máy chủ không trả về liên kết file.");
@@ -966,18 +1080,15 @@
 
       async function uploadAll() {
         if (state.uploading) return;
-
         const pending = state.items.filter(item => item.status === "ready");
         if (pending.length === 0) return;
 
         const authenticated = await ensureCredentials();
-        if (!authenticated) {
-          setMessage("Đã hủy tải lên.");
-          return;
-        }
+        if (!authenticated) return setMessage("Đã hủy tải lên.");
 
         state.uploading = true;
-        setMessage(`Đang tải ${pending.length} file theo thứ tự…`);
+        const albumName = albumSelect.options[albumSelect.selectedIndex]?.textContent || "Chưa phân loại";
+        setMessage(`Đang tải ${pending.length} file vào album ${albumName}…`);
         render();
 
         for (let index = 0; index < pending.length; index++) {
@@ -989,35 +1100,24 @@
         state.uploading = false;
         const successCount = state.items.filter(item => item.status === "success").length;
         const failedCount = state.items.filter(item => item.status === "error").length;
-
-        if (failedCount > 0) {
-          setMessage(`Hoàn tất: ${successCount} thành công, ${failedCount} lỗi.`, "error");
-        } else {
-          setMessage(`Đã tải lên thành công ${successCount} file.`, "success");
-        }
-
+        if (failedCount > 0) setMessage(`Hoàn tất: ${successCount} thành công, ${failedCount} lỗi.`, "error");
+        else setMessage(`Đã tải lên thành công ${successCount} file vào album ${albumName}.`, "success");
         render();
       }
 
       async function copyAllLinks() {
-        const links = state.items
-          .filter(item => item.status === "success" && item.url)
-          .map(item => item.url);
-
+        const links = state.items.filter(item => item.status === "success" && item.url).map(item => item.url);
         if (links.length === 0) return;
-
-        try {
-          await navigator.clipboard.writeText(links.join("\n"));
-          setMessage(`Đã sao chép ${links.length} liên kết.`, "success");
-        } catch (_) {
+        try { await navigator.clipboard.writeText(links.join("\n")); }
+        catch {
           const textarea = document.createElement("textarea");
           textarea.value = links.join("\n");
           document.body.appendChild(textarea);
           textarea.select();
           document.execCommand("copy");
           textarea.remove();
-          setMessage(`Đã sao chép ${links.length} liên kết.`, "success");
         }
+        setMessage(`Đã sao chép ${links.length} liên kết.`, "success");
       }
 
       function clearQueue() {
@@ -1033,7 +1133,6 @@
         addFiles(event.target.files);
         fileInput.value = "";
       });
-
       uploadButton.addEventListener("click", uploadAll);
       copyAllButton.addEventListener("click", copyAllLinks);
       clearButton.addEventListener("click", clearQueue);
@@ -1045,25 +1144,21 @@
           if (!state.uploading) dropzone.classList.add("is-dragging");
         });
       });
-
       ["dragleave", "drop"].forEach(eventName => {
         dropzone.addEventListener(eventName, event => {
           event.preventDefault();
           dropzone.classList.remove("is-dragging");
         });
       });
-
       dropzone.addEventListener("drop", event => {
         if (!state.uploading) addFiles(event.dataTransfer.files);
       });
-
       document.addEventListener("paste", event => {
         if (state.uploading) return;
         const files = Array.from(event.clipboardData?.items || [])
           .filter(item => item.kind === "file")
           .map(item => item.getAsFile())
           .filter(Boolean);
-
         if (files.length > 0) {
           event.preventDefault();
           addFiles(files);
@@ -1071,6 +1166,7 @@
       });
 
       render();
+      restoreAuth();
     })();
   </script>
 </body>

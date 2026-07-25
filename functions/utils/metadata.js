@@ -10,25 +10,37 @@ export const LABEL = {
 };
 
 export function createDefaultMetadata(id, overrides = {}) {
+  const timestamp = Date.now();
   return {
-    TimeStamp: Date.now(),
+    TimeStamp: timestamp,
     ListType: LIST_TYPE.NONE,
     Label: LABEL.NONE,
     liked: false,
     fileName: id,
     fileSize: 0,
+    albumId: 'unclassified',
+    capturedAt: timestamp,
+    capturedMonth: new Date(timestamp).toISOString().slice(0, 7),
+    tags: [],
     ...overrides,
   };
 }
 
-export function normalizeMetadata(metadata, id) {
+export function normalizeMetadata(metadata = {}, id) {
+  const timestamp = Number(metadata.TimeStamp) || Date.now();
+  const capturedAt = Number(metadata.capturedAt) || timestamp;
   return {
+    ...metadata,
     ListType: metadata.ListType || LIST_TYPE.NONE,
     Label: metadata.Label || LABEL.NONE,
-    TimeStamp: metadata.TimeStamp || Date.now(),
+    TimeStamp: timestamp,
     liked: metadata.liked !== undefined ? metadata.liked : false,
     fileName: metadata.fileName || id,
     fileSize: metadata.fileSize || 0,
+    albumId: metadata.albumId || 'unclassified',
+    capturedAt,
+    capturedMonth: metadata.capturedMonth || new Date(capturedAt).toISOString().slice(0, 7),
+    tags: Array.isArray(metadata.tags) ? metadata.tags : [],
   };
 }
 
@@ -39,10 +51,7 @@ export async function getMetadata(env, id) {
 
 export async function getOrCreateMetadata(env, id) {
   const record = await env.img_url.getWithMetadata(id);
-
-  if (record?.metadata) {
-    return normalizeMetadata(record.metadata, id);
-  }
+  if (record?.metadata) return normalizeMetadata(record.metadata, id);
 
   const metadata = createDefaultMetadata(id);
   await putMetadata(env, id, metadata);
@@ -57,7 +66,7 @@ export async function updateMetadata(env, id, updater) {
   const metadata = await getMetadata(env, id);
   if (!metadata) return null;
 
-  const updated = updater(metadata);
+  const updated = updater({ ...metadata });
   await putMetadata(env, id, updated);
   return updated;
 }

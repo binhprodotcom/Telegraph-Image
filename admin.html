@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111111">
   <meta name="description" content="BBC Image — quản lý kho ảnh.">
-  <meta name="generator" content="BBC Image Admin 2.2">
+  <meta name="generator" content="BBC Image Albums Admin 3.0">
   <title>Quản lý ảnh · BBC Image</title>
   <link rel="icon" href="/favicon.ico">
   <style>
@@ -704,6 +704,96 @@
       }
     }
 
+
+    .album-panel {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+    }
+
+    .album-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .album-panel-head strong { font-size: 14px; }
+    .album-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .album-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 3px;
+      scrollbar-width: thin;
+    }
+
+    .album-chip {
+      flex: 0 0 auto;
+      min-height: 39px;
+      cursor: pointer;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,.035);
+      font-weight: 680;
+    }
+
+    .album-chip.is-active {
+      color: #17120a;
+      border-color: transparent;
+      background: var(--accent);
+    }
+
+    .bulk-bar {
+      display: none;
+      grid-template-columns: auto minmax(180px, 320px) auto auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 12px 14px;
+      border: 1px solid rgba(244,182,92,.25);
+      border-radius: 17px;
+      background: rgba(244,182,92,.08);
+    }
+
+    .bulk-bar.is-visible { display: grid; }
+    .bulk-count { font-size: 13px; font-weight: 720; }
+
+    .select-box {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      display: grid;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 10px;
+      background: rgba(11,11,11,.74);
+    }
+
+    .select-box input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+    .album-name-line {
+      margin-top: 8px;
+      color: rgba(247,242,233,.72);
+      font-size: 11px;
+    }
+
+    @media (max-width: 760px) {
+      .bulk-bar { grid-template-columns: 1fr; }
+      .album-panel-head { align-items: flex-start; flex-direction: column; }
+    }
+
   </style>
 </head>
 <body>
@@ -773,6 +863,27 @@
       </div>
     </section>
 
+
+    <section class="album-panel">
+      <div class="album-panel-head">
+        <strong>Album ảnh</strong>
+        <div class="album-panel-actions">
+          <button class="button" id="createAlbumButton" type="button">Tạo album</button>
+          <button class="button" id="renameAlbumButton" type="button" disabled>Đổi tên album</button>
+          <button class="button danger" id="deleteAlbumButton" type="button" disabled>Xóa album</button>
+          <button class="button" id="rebuildIndexButton" type="button">Đồng bộ ảnh cũ</button>
+        </div>
+      </div>
+      <div class="album-strip" id="albumStrip" aria-label="Danh sách album"></div>
+    </section>
+
+    <section class="bulk-bar" id="bulkBar">
+      <span class="bulk-count" id="bulkCount">0 ảnh đã chọn</span>
+      <select class="select" id="bulkAlbumSelect" aria-label="Album đích"></select>
+      <button class="button primary" id="bulkMoveButton" type="button">Chuyển album</button>
+      <button class="button" id="clearSelectionButton" type="button">Bỏ chọn</button>
+    </section>
+
     <section class="toolbar">
       <label class="search">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -790,6 +901,7 @@
       </div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <select class="select" id="monthSelect" aria-label="Lọc theo tháng"><option value="all">Tất cả tháng</option></select>
         <select class="select" id="sortSelect" aria-label="Sắp xếp">
           <option value="newest">Mới nhất trước</option>
           <option value="oldest">Cũ nhất trước</option>
@@ -824,16 +936,19 @@
 
       const AUTH_KEY = "bbcAdminBasicAuth";
       const PAGE_SIZE = 24;
-
       const state = {
         files: [],
+        albums: [],
         cursor: null,
         loading: false,
         search: "",
         filter: "all",
         sort: "newest",
+        month: "all",
         view: localStorage.getItem("bbcAdminView") || "grid",
-        authHeader: sessionStorage.getItem(AUTH_KEY) || ""
+        authHeader: sessionStorage.getItem(AUTH_KEY) || "",
+        activeAlbum: "all",
+        selected: new Set()
       };
 
       const appShell = document.getElementById("appShell");
@@ -843,12 +958,12 @@
       const loginPass = document.getElementById("loginPass");
       const loginError = document.getElementById("loginError");
       const loginSubmit = document.getElementById("loginSubmit");
-
       const fileGrid = document.getElementById("fileGrid");
       const emptyState = document.getElementById("emptyState");
       const notice = document.getElementById("notice");
       const searchInput = document.getElementById("searchInput");
       const sortSelect = document.getElementById("sortSelect");
+      const monthSelect = document.getElementById("monthSelect");
       const loadMoreButton = document.getElementById("loadMoreButton");
       const refreshButton = document.getElementById("refreshButton");
       const logoutButton = document.getElementById("logoutButton");
@@ -858,6 +973,16 @@
       const previewModal = document.getElementById("previewModal");
       const modalContent = document.getElementById("modalContent");
       const modalClose = document.getElementById("modalClose");
+      const albumStrip = document.getElementById("albumStrip");
+      const createAlbumButton = document.getElementById("createAlbumButton");
+      const renameAlbumButton = document.getElementById("renameAlbumButton");
+      const deleteAlbumButton = document.getElementById("deleteAlbumButton");
+      const rebuildIndexButton = document.getElementById("rebuildIndexButton");
+      const bulkBar = document.getElementById("bulkBar");
+      const bulkCount = document.getElementById("bulkCount");
+      const bulkAlbumSelect = document.getElementById("bulkAlbumSelect");
+      const bulkMoveButton = document.getElementById("bulkMoveButton");
+      const clearSelectionButton = document.getElementById("clearSelectionButton");
 
       let searchTimer = null;
       let mediaObserver = null;
@@ -886,7 +1011,9 @@
         state.authHeader = "";
         sessionStorage.removeItem(AUTH_KEY);
         state.files = [];
+        state.albums = [];
         state.cursor = null;
+        state.selected.clear();
         render();
         showLogin(message);
       }
@@ -906,7 +1033,6 @@
         loginError.textContent = "";
         loginSubmit.disabled = true;
         loginSubmit.textContent = "Đang kiểm tra…";
-
         const header = encodeBasicAuth(loginUser.value.trim(), loginPass.value);
 
         try {
@@ -916,11 +1042,11 @@
             loginPass.select();
             return;
           }
-
           state.authHeader = header;
           sessionStorage.setItem(AUTH_KEY, header);
           loginPass.value = "";
           showApp();
+          await loadAlbums();
           await loadFiles({ reset: true });
         } catch (error) {
           loginError.textContent = error.message || "Không thể đăng nhập.";
@@ -931,20 +1057,14 @@
       });
 
       async function initAuth() {
-        if (!state.authHeader) {
-          showLogin();
-          return;
-        }
-
+        if (!state.authHeader) return showLogin();
         try {
           const valid = await verifyAuth(state.authHeader);
-          if (!valid) {
-            clearAuth("Phiên đăng nhập không còn hợp lệ.");
-            return;
-          }
+          if (!valid) return clearAuth("Phiên đăng nhập không còn hợp lệ.");
           showApp();
+          await loadAlbums();
           await loadFiles({ reset: true });
-        } catch (_) {
+        } catch {
           clearAuth("Không thể kiểm tra phiên đăng nhập.");
         }
       }
@@ -952,7 +1072,7 @@
       function safeMetadata(value) {
         if (!value) return {};
         if (typeof value === "object") return value;
-        try { return JSON.parse(value); } catch (_) { return {}; }
+        try { return JSON.parse(value); } catch { return {}; }
       }
 
       function normalizeFile(file) {
@@ -966,28 +1086,19 @@
         return "none";
       }
 
-      function displayName(file) {
-        return file.metadata?.fileName || file.name;
+      function displayName(file) { return file.metadata?.fileName || file.name; }
+      function fileAlbumId(file) { return file.metadata?.albumId || "unclassified"; }
+      function albumName(id) {
+        if (id === "unclassified") return "Chưa phân loại";
+        return state.albums.find(album => album.id === id)?.name || "Album đã xóa";
       }
-
-      function originalLink(file) {
-        return `${location.origin}/file/${encodeURIComponent(file.name)}`;
-      }
-
-      function shortLink(file) {
-        const shortId = file.metadata?.shortId;
-        return shortId ? `${location.origin}/file/${shortId}` : "";
-      }
-
-      function fileUrl(file) {
-        return `/file/${encodeURIComponent(file.name)}`;
-      }
-
+      function originalLink(file) { return `${location.origin}/file/${encodeURIComponent(file.name)}`; }
+      function shortLink(file) { return file.metadata?.shortId ? `${location.origin}/file/${file.metadata.shortId}` : ""; }
+      function fileUrl(file) { return `/file/${encodeURIComponent(file.name)}`; }
       function extensionOf(name) {
         const part = String(name).split(".").pop();
         return part && part !== name ? part.toLowerCase() : "";
       }
-
       function mediaType(file) {
         const ext = extensionOf(file.name);
         if (["jpg","jpeg","png","gif","webp","bmp","tiff","ico","svg","avif","apng"].includes(ext)) return "image";
@@ -996,26 +1107,18 @@
         if (ext === "pdf") return "pdf";
         return "file";
       }
-
-      function timestampOf(file) {
-        const value = Number(file.metadata?.TimeStamp || 0);
-        return Number.isFinite(value) ? value : 0;
+      function timestampOf(file) { return Number(file.metadata?.TimeStamp || 0) || 0; }
+      function capturedMonthOf(file) {
+        return file.metadata?.capturedMonth || new Date(Number(file.metadata?.capturedAt) || timestampOf(file) || Date.now()).toISOString().slice(0, 7);
       }
-
       function formatDate(timestamp) {
         if (!timestamp) return "Không rõ thời gian";
         return new Intl.DateTimeFormat("vi-VN", {
-          day: "2-digit", month: "2-digit", year: "numeric",
-          hour: "2-digit", minute: "2-digit"
+          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
         }).format(new Date(timestamp));
       }
-
       function escapeHtml(value) {
-        return String(value)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;");
+        return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
       }
 
       function toast(message, type = "success") {
@@ -1023,7 +1126,7 @@
         el.className = `toast ${type}`;
         el.textContent = message;
         toastWrap.appendChild(el);
-        setTimeout(() => el.remove(), 3000);
+        setTimeout(() => el.remove(), 3200);
       }
 
       function showNotice(message = "") {
@@ -1036,27 +1139,46 @@
           clearAuth("Vui lòng đăng nhập.");
           throw new Error("Cần đăng nhập.");
         }
-
         const headers = new Headers(options.headers || {});
         headers.set("Authorization", state.authHeader);
-
-        const response = await fetch(url, {
-          cache: "no-store",
-          redirect: "follow",
-          ...options,
-          headers
-        });
-
+        const response = await fetch(url, { cache: "no-store", ...options, headers });
         if (response.status === 401) {
           clearAuth("Phiên đăng nhập đã hết hiệu lực hoặc tài khoản chưa đúng.");
           throw new Error("Cần đăng nhập lại.");
         }
-
         if (!response.ok) {
-          throw new Error(`Yêu cầu thất bại (${response.status}).`);
+          let message = `Yêu cầu thất bại (${response.status}).`;
+          try { message = (await response.json()).error || message; } catch {}
+          throw new Error(message);
         }
-
         return response;
+      }
+
+      async function loadAlbums() {
+        const response = await api("/api/manage/albums");
+        const data = await response.json();
+        state.albums = data.albums || [];
+        renderAlbums();
+      }
+
+      function renderAlbums() {
+        const items = [
+          { id: "all", name: "Tất cả ảnh", virtual: true },
+          { id: "unclassified", name: "Chưa phân loại", virtual: true },
+          ...state.albums
+        ];
+        albumStrip.innerHTML = items.map(album => `
+          <button class="album-chip${state.activeAlbum === album.id ? " is-active" : ""}" data-album-id="${escapeHtml(album.id)}" type="button">${escapeHtml(album.name)}</button>
+        `).join("");
+
+        bulkAlbumSelect.innerHTML = [
+          '<option value="unclassified">Chưa phân loại</option>',
+          ...state.albums.map(album => `<option value="${escapeHtml(album.id)}">${escapeHtml(album.name)}</option>`)
+        ].join("");
+
+        const editable = state.activeAlbum !== "all" && state.activeAlbum !== "unclassified";
+        renameAlbumButton.disabled = !editable;
+        deleteAlbumButton.disabled = !editable;
       }
 
       async function loadFiles({ reset = false } = {}) {
@@ -1068,23 +1190,27 @@
         if (reset) {
           state.files = [];
           state.cursor = null;
+          state.selected.clear();
           render();
         }
 
         const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
         if (state.cursor) params.set("cursor", state.cursor);
-        if (state.search.trim()) params.set("prefix", state.search.trim());
+
+        let endpoint = "/api/manage/list";
+        if (state.activeAlbum !== "all") {
+          endpoint = "/api/manage/albums/files";
+          params.set("albumId", state.activeAlbum);
+        } else if (state.search.trim()) {
+          params.set("prefix", state.search.trim());
+        }
 
         try {
-          const response = await api(`/api/manage/list?${params.toString()}`);
+          const response = await api(`${endpoint}?${params.toString()}`);
           const result = await response.json();
           const incoming = (result.keys || []).map(normalizeFile);
-
           const known = new Set(state.files.map(file => file.name));
-          incoming.forEach(file => {
-            if (!known.has(file.name)) state.files.push(file);
-          });
-
+          incoming.forEach(file => { if (!known.has(file.name)) state.files.push(file); });
           state.cursor = result.list_complete ? null : result.cursor;
           loadMoreButton.hidden = !state.cursor;
           render();
@@ -1098,26 +1224,29 @@
 
       function filteredFiles() {
         let files = [...state.files];
-
         if (state.search.trim()) {
           const query = state.search.trim().toLowerCase();
-          files = files.filter(file =>
-            file.name.toLowerCase().includes(query) ||
-            displayName(file).toLowerCase().includes(query)
-          );
+          files = files.filter(file => file.name.toLowerCase().includes(query) || displayName(file).toLowerCase().includes(query));
         }
-
-        if (state.filter !== "all") {
-          files = files.filter(file => statusOf(file) === state.filter);
-        }
-
+        if (state.filter !== "all") files = files.filter(file => statusOf(file) === state.filter);
+        if (state.month !== "all") files = files.filter(file => capturedMonthOf(file) === state.month);
         files.sort((a, b) => {
           if (state.sort === "oldest") return timestampOf(a) - timestampOf(b);
           if (state.sort === "name") return displayName(a).localeCompare(displayName(b), "vi");
           return timestampOf(b) - timestampOf(a);
         });
-
         return files;
+      }
+
+      function updateMonthOptions() {
+        const months = [...new Set(state.files.map(capturedMonthOf).filter(Boolean))].sort().reverse();
+        const current = state.month;
+        monthSelect.innerHTML = '<option value="all">Tất cả tháng</option>' + months.map(month => {
+          const [year, m] = month.split("-");
+          return `<option value="${month}">Tháng ${m}/${year}</option>`;
+        }).join("");
+        monthSelect.value = months.includes(current) ? current : "all";
+        state.month = monthSelect.value;
       }
 
       function updateStats() {
@@ -1130,14 +1259,8 @@
       function previewMarkup(file) {
         const type = mediaType(file);
         const url = fileUrl(file);
-
-        if (type === "image") {
-          return `<span class="media-skeleton" aria-hidden="true"></span><img data-src="${url}" alt="${escapeHtml(displayName(file))}" decoding="async" fetchpriority="low">`;
-        }
-        if (type === "video") {
-          return `<span class="media-skeleton" aria-hidden="true"></span><video data-src="${url}" muted preload="none" playsinline></video>`;
-        }
-
+        if (type === "image") return `<span class="media-skeleton" aria-hidden="true"></span><img data-src="${url}" alt="${escapeHtml(displayName(file))}" decoding="async" fetchpriority="low">`;
+        if (type === "video") return `<span class="media-skeleton" aria-hidden="true"></span><video data-src="${url}" muted preload="none" playsinline></video>`;
         return `<div class="file-placeholder"><strong>${escapeHtml(extensionOf(file.name).toUpperCase() || "FILE")}</strong><span>Nhấn để mở file</span></div>`;
       }
 
@@ -1150,28 +1273,26 @@
 
       function cardMarkup(file) {
         const status = statusOf(file);
-        const type = mediaType(file);
         const short = shortLink(file);
-
+        const checked = state.selected.has(file.name) ? " checked" : "";
         return `
           <article class="card" data-name="${escapeHtml(file.name)}">
             <div class="preview" data-action="preview" data-name="${escapeHtml(file.name)}">
               ${previewMarkup(file)}
+              <label class="select-box" data-action="select" data-name="${escapeHtml(file.name)}" title="Chọn ảnh"><input data-action="select" data-name="${escapeHtml(file.name)}" type="checkbox"${checked}></label>
               <span class="badge ${status}">${statusLabel(file)}</span>
             </div>
             <div class="card-body">
               <div>
                 <h2 class="title" title="${escapeHtml(displayName(file))}">${escapeHtml(displayName(file))}</h2>
-                <div class="meta">
-                  <span>${escapeHtml(type === "file" ? "Tệp" : type)}</span>
-                  <span>${formatDate(timestampOf(file))}</span>
-                </div>
+                <div class="meta"><span>${escapeHtml(mediaType(file))}</span><span>${formatDate(timestampOf(file))}</span></div>
+                <div class="album-name-line">Album: ${escapeHtml(albumName(fileAlbumId(file)))}</div>
                 <div class="link-line" title="${escapeHtml(originalLink(file))}">${escapeHtml(originalLink(file))}</div>
               </div>
-
               <div class="card-actions">
                 <button class="card-action" data-action="copy-original" data-name="${escapeHtml(file.name)}">Sao chép link gốc</button>
                 ${short ? `<button class="card-action" data-action="copy-short" data-name="${escapeHtml(file.name)}">Sao chép link ngắn</button>` : ""}
+                <button class="card-action" data-action="move-one" data-name="${escapeHtml(file.name)}">Chuyển album</button>
                 <button class="card-action" data-action="rename" data-name="${escapeHtml(file.name)}">Đổi tên</button>
                 <button class="card-action" data-action="white" data-name="${escapeHtml(file.name)}">Danh sách trắng</button>
                 <button class="card-action" data-action="block" data-name="${escapeHtml(file.name)}">Danh sách đen</button>
@@ -1179,62 +1300,52 @@
                 <button class="card-action danger" data-action="delete" data-name="${escapeHtml(file.name)}">Xóa bản ghi</button>
               </div>
             </div>
-          </article>
-        `;
+          </article>`;
       }
 
       function setupLazyMedia() {
         mediaObserver?.disconnect();
-
         mediaObserver = new IntersectionObserver(entries => {
           entries.forEach(entry => {
             if (!entry.isIntersecting) return;
             const media = entry.target;
             const src = media.dataset.src;
             if (!src) return;
-
-            media.addEventListener("load", () => {
-              media.previousElementSibling?.remove();
-            }, { once: true });
-
-            media.addEventListener("loadeddata", () => {
-              media.previousElementSibling?.remove();
-            }, { once: true });
-
-            media.addEventListener("error", () => {
-              media.previousElementSibling?.remove();
-            }, { once: true });
-
+            const done = () => media.previousElementSibling?.remove();
+            media.addEventListener("load", done, { once: true });
+            media.addEventListener("loadeddata", done, { once: true });
+            media.addEventListener("error", done, { once: true });
             media.src = src;
             media.removeAttribute("data-src");
             mediaObserver.unobserve(media);
           });
         }, { rootMargin: "420px 0px" });
-
         fileGrid.querySelectorAll("[data-src]").forEach(media => mediaObserver.observe(media));
+      }
+
+      function renderBulk() {
+        bulkCount.textContent = `${state.selected.size} ảnh đã chọn`;
+        bulkBar.classList.toggle("is-visible", state.selected.size > 0);
       }
 
       function render() {
         updateStats();
-
+        updateMonthOptions();
         const files = filteredFiles();
         fileGrid.classList.toggle("is-list", state.view === "list");
         gridViewButton.classList.toggle("is-active", state.view === "grid");
         listViewButton.classList.toggle("is-active", state.view === "list");
-
         fileGrid.innerHTML = files.map(cardMarkup).join("");
         emptyState.classList.toggle("is-visible", files.length === 0 && !state.loading);
+        renderAlbums();
+        renderBulk();
         setupLazyMedia();
       }
 
-      function findFile(name) {
-        return state.files.find(file => file.name === name);
-      }
-
+      function findFile(name) { return state.files.find(file => file.name === name); }
       async function copyText(text) {
-        try {
-          await navigator.clipboard.writeText(text);
-        } catch (_) {
+        try { await navigator.clipboard.writeText(text); }
+        catch {
           const textarea = document.createElement("textarea");
           textarea.value = text;
           document.body.appendChild(textarea);
@@ -1244,174 +1355,212 @@
         }
       }
 
+      async function moveFiles(fileIds, albumId) {
+        const chunks = [];
+        for (let i = 0; i < fileIds.length; i += 50) chunks.push(fileIds.slice(i, i + 50));
+        let success = 0;
+        for (const chunk of chunks) {
+          const response = await api("/api/manage/albums/move", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileIds: chunk, albumId })
+          });
+          const data = await response.json();
+          success += (data.results || []).filter(item => item.success).length;
+        }
+        return success;
+      }
+
       async function setListType(file, type) {
         const endpoint = type === "white" ? "white" : "block";
         const label = type === "white" ? "danh sách trắng" : "danh sách đen";
-
         if (!confirm(`Đưa file này vào ${label}?`)) return;
-
         try {
           const response = await api(`/api/manage/${endpoint}/${encodeURIComponent(file.name)}`);
-          const text = await response.text();
-          const parsed = safeMetadata(text);
-          file.metadata = Object.keys(parsed).length ? parsed : {
-            ...file.metadata,
-            ListType: type === "white" ? "White" : "Block"
-          };
+          file.metadata = safeMetadata(await response.json());
           render();
           toast(`Đã cập nhật ${label}.`);
-        } catch (error) {
-          toast(error.message || "Không thể cập nhật trạng thái.", "error");
-        }
+        } catch (error) { toast(error.message, "error"); }
       }
 
       async function renameFile(file) {
         const value = prompt("Tên hiển thị mới:", displayName(file));
         if (value === null) return;
-
         const trimmed = value.trim();
         if (!trimmed) return toast("Tên file không được để trống.", "error");
         if (trimmed.length > 64) return toast("Tên file không được vượt quá 64 ký tự.", "error");
-
         try {
           const response = await api(`/api/manage/editName/${encodeURIComponent(file.name)}?newName=${encodeURIComponent(trimmed)}`);
           const result = await response.json();
-          if (!result.success) throw new Error("Máy chủ từ chối đổi tên.");
-
-          file.metadata.fileName = trimmed;
+          file.metadata = result.metadata || { ...file.metadata, fileName: trimmed };
           render();
           toast("Đã đổi tên hiển thị.");
-        } catch (error) {
-          toast(error.message || "Không thể đổi tên.", "error");
-        }
+        } catch (error) { toast(error.message, "error"); }
       }
 
       async function deleteRecord(file) {
-        const accepted = confirm(
-          "Xóa bản ghi này khỏi dashboard?\\n\\nFile gốc trên Telegram không bị xóa. Muốn chặn truy cập, hãy dùng Danh sách đen."
-        );
-        if (!accepted) return;
-
+        if (!confirm("Xóa bản ghi này khỏi dashboard?\n\nFile gốc trên Telegram không bị xóa. Muốn chặn truy cập, hãy dùng Danh sách đen.")) return;
         try {
           await api(`/api/manage/delete/${encodeURIComponent(file.name)}`);
           state.files = state.files.filter(item => item.name !== file.name);
+          state.selected.delete(file.name);
           render();
           toast("Đã xóa bản ghi.");
-        } catch (error) {
-          toast(error.message || "Không thể xóa bản ghi.", "error");
-        }
+        } catch (error) { toast(error.message, "error"); }
       }
 
       function openPreview(file) {
         const type = mediaType(file);
         const url = fileUrl(file);
         modalContent.innerHTML = "";
-
         if (type === "image") {
-          const img = document.createElement("img");
-          img.src = url;
-          img.alt = displayName(file);
-          img.decoding = "async";
-          modalContent.appendChild(img);
+          const img = document.createElement("img"); img.src = url; img.alt = displayName(file); img.decoding = "async"; modalContent.appendChild(img);
         } else if (type === "video") {
-          const video = document.createElement("video");
-          video.src = url;
-          video.controls = true;
-          video.autoplay = true;
-          video.preload = "metadata";
-          modalContent.appendChild(video);
-        } else {
-          window.open(url, "_blank", "noopener");
-          return;
-        }
-
+          const video = document.createElement("video"); video.src = url; video.controls = true; video.autoplay = true; video.preload = "metadata"; modalContent.appendChild(video);
+        } else return window.open(url, "_blank", "noopener");
         previewModal.classList.add("is-visible");
       }
 
       fileGrid.addEventListener("click", async event => {
         const target = event.target.closest("[data-action]");
         if (!target) return;
-
         const file = findFile(target.dataset.name);
         if (!file) return;
-
         const action = target.dataset.action;
-        if (action === "copy-original") {
-          await copyText(originalLink(file));
-          toast("Đã sao chép link gốc có đuôi file.");
+
+        if (action === "select") {
+          event.stopPropagation();
+          const checkbox = target.matches("input") ? target : target.querySelector("input");
+          if (!checkbox) return;
+          checkbox.checked ? state.selected.add(file.name) : state.selected.delete(file.name);
+          renderBulk();
+        } else if (action === "copy-original") {
+          await copyText(originalLink(file)); toast("Đã sao chép link gốc có đuôi file.");
         } else if (action === "copy-short") {
-          await copyText(shortLink(file));
-          toast("Đã sao chép link ngắn.");
-        } else if (action === "rename") {
-          renameFile(file);
-        } else if (action === "white") {
-          setListType(file, "white");
-        } else if (action === "block") {
-          setListType(file, "block");
-        } else if (action === "delete") {
-          deleteRecord(file);
-        } else if (action === "open") {
-          window.open(fileUrl(file), "_blank", "noopener");
-        } else if (action === "preview") {
-          openPreview(file);
-        }
+          await copyText(shortLink(file)); toast("Đã sao chép link ngắn.");
+        } else if (action === "move-one") {
+          const targetId = prompt(`Nhập ID album đích:\n${["unclassified", ...state.albums.map(a => a.id)].join("\n")}`, fileAlbumId(file));
+          if (!targetId) return;
+          try { await moveFiles([file.name], targetId.trim()); toast("Đã chuyển album."); await loadFiles({ reset: true }); }
+          catch (error) { toast(error.message, "error"); }
+        } else if (action === "rename") renameFile(file);
+        else if (action === "white") setListType(file, "white");
+        else if (action === "block") setListType(file, "block");
+        else if (action === "delete") deleteRecord(file);
+        else if (action === "open") window.open(fileUrl(file), "_blank", "noopener");
+        else if (action === "preview") openPreview(file);
       });
+
+      albumStrip.addEventListener("click", async event => {
+        const button = event.target.closest("[data-album-id]");
+        if (!button) return;
+        state.activeAlbum = button.dataset.albumId;
+        state.month = "all";
+        await loadFiles({ reset: true });
+      });
+
+      createAlbumButton.addEventListener("click", async () => {
+        const name = prompt("Tên album mới:");
+        if (!name?.trim()) return;
+        try {
+          await api("/api/manage/albums", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name })
+          });
+          await loadAlbums();
+          toast("Đã tạo album.");
+        } catch (error) { toast(error.message, "error"); }
+      });
+
+      renameAlbumButton.addEventListener("click", async () => {
+        const album = state.albums.find(item => item.id === state.activeAlbum);
+        if (!album) return;
+        const name = prompt("Tên album mới:", album.name);
+        if (!name?.trim()) return;
+        try {
+          await api("/api/manage/albums", {
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: album.id, name })
+          });
+          await loadAlbums();
+          toast("Đã đổi tên album.");
+        } catch (error) { toast(error.message, "error"); }
+      });
+
+      deleteAlbumButton.addEventListener("click", async () => {
+        const album = state.albums.find(item => item.id === state.activeAlbum);
+        if (!album) return;
+        if (!confirm(`Xóa album “${album.name}”?\n\nToàn bộ ảnh trong album sẽ được chuyển về Chưa phân loại. Link ảnh không đổi.`)) return;
+        deleteAlbumButton.disabled = true;
+        deleteAlbumButton.textContent = "Đang chuyển ảnh…";
+        try {
+          let complete = false;
+          let moved = 0;
+          while (!complete) {
+            const response = await api(`/api/manage/albums?id=${encodeURIComponent(album.id)}`, { method: "DELETE" });
+            const data = await response.json();
+            complete = data.complete;
+            moved += data.moved || 0;
+          }
+          state.activeAlbum = "all";
+          await loadAlbums();
+          await loadFiles({ reset: true });
+          toast(`Đã xóa album và chuyển ${moved} ảnh về Chưa phân loại.`);
+        } catch (error) { toast(error.message, "error"); }
+        finally { deleteAlbumButton.textContent = "Xóa album"; renderAlbums(); }
+      });
+
+      rebuildIndexButton.addEventListener("click", async () => {
+        if (!confirm("Đồng bộ toàn bộ ảnh cũ vào hệ thống album? Quá trình có thể mất một lúc nếu có nhiều ảnh.")) return;
+        rebuildIndexButton.disabled = true;
+        let cursor = null;
+        let total = 0;
+        try {
+          do {
+            rebuildIndexButton.textContent = `Đang đồng bộ… ${total}`;
+            const response = await api("/api/manage/albums/rebuild", {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cursor })
+            });
+            const data = await response.json();
+            total += data.indexed || 0;
+            cursor = data.complete ? null : data.cursor;
+          } while (cursor);
+          toast(`Đã đồng bộ ${total} ảnh cũ.`);
+          await loadFiles({ reset: true });
+        } catch (error) { toast(error.message, "error"); }
+        finally { rebuildIndexButton.disabled = false; rebuildIndexButton.textContent = "Đồng bộ ảnh cũ"; }
+      });
+
+      bulkMoveButton.addEventListener("click", async () => {
+        if (state.selected.size === 0) return;
+        bulkMoveButton.disabled = true;
+        try {
+          const moved = await moveFiles([...state.selected], bulkAlbumSelect.value);
+          toast(`Đã chuyển ${moved} ảnh.`);
+          await loadFiles({ reset: true });
+        } catch (error) { toast(error.message, "error"); }
+        finally { bulkMoveButton.disabled = false; }
+      });
+      clearSelectionButton.addEventListener("click", () => { state.selected.clear(); render(); });
 
       document.querySelectorAll("[data-filter]").forEach(button => {
         button.addEventListener("click", () => {
           document.querySelectorAll("[data-filter]").forEach(item => item.classList.remove("is-active"));
-          button.classList.add("is-active");
-          state.filter = button.dataset.filter;
-          render();
+          button.classList.add("is-active"); state.filter = button.dataset.filter; render();
         });
       });
-
       searchInput.addEventListener("input", () => {
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
-          state.search = searchInput.value;
-          loadFiles({ reset: true });
-        }, 400);
+        searchTimer = setTimeout(() => { state.search = searchInput.value; loadFiles({ reset: true }); }, 400);
       });
-
-      sortSelect.addEventListener("change", () => {
-        state.sort = sortSelect.value;
-        render();
-      });
-
-      gridViewButton.addEventListener("click", () => {
-        state.view = "grid";
-        localStorage.setItem("bbcAdminView", "grid");
-        render();
-      });
-
-      listViewButton.addEventListener("click", () => {
-        state.view = "list";
-        localStorage.setItem("bbcAdminView", "list");
-        render();
-      });
-
+      sortSelect.addEventListener("change", () => { state.sort = sortSelect.value; render(); });
+      monthSelect.addEventListener("change", () => { state.month = monthSelect.value; render(); });
+      gridViewButton.addEventListener("click", () => { state.view = "grid"; localStorage.setItem("bbcAdminView", "grid"); render(); });
+      listViewButton.addEventListener("click", () => { state.view = "list"; localStorage.setItem("bbcAdminView", "list"); render(); });
       refreshButton.addEventListener("click", () => loadFiles({ reset: true }));
       loadMoreButton.addEventListener("click", () => loadFiles());
-
-      logoutButton.addEventListener("click", () => {
-        loginUser.value = "";
-        loginPass.value = "";
-        clearAuth("Đã đăng xuất.");
-      });
-
-      modalClose.addEventListener("click", () => {
-        previewModal.classList.remove("is-visible");
-        modalContent.innerHTML = "";
-      });
-
-      previewModal.addEventListener("click", event => {
-        if (event.target === previewModal) modalClose.click();
-      });
-
-      document.addEventListener("keydown", event => {
-        if (event.key === "Escape") modalClose.click();
-      });
+      logoutButton.addEventListener("click", () => { loginUser.value = ""; loginPass.value = ""; clearAuth("Đã đăng xuất."); });
+      modalClose.addEventListener("click", () => { previewModal.classList.remove("is-visible"); modalContent.innerHTML = ""; });
+      previewModal.addEventListener("click", event => { if (event.target === previewModal) modalClose.click(); });
+      document.addEventListener("keydown", event => { if (event.key === "Escape") modalClose.click(); });
 
       render();
       initAuth();
