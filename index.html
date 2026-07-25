@@ -1081,12 +1081,13 @@
             item.progress = 82;
             render();
             const data = await response.json();
-            const src = Array.isArray(data) ? data[0]?.src : data?.src;
+            const result = Array.isArray(data) ? data[0] : data;
+            const src = result?.src;
             if (!src) throw new Error("Máy chủ không trả về liên kết file.");
 
             item.url = new URL(src, window.location.origin).href;
             item.status = "success";
-            item.message = "Tải lên thành công";
+            item.message = result?.duplicate ? "Ảnh đã tồn tại – không tải trùng" : "Tải lên thành công";
             item.progress = 100;
             render();
             return true;

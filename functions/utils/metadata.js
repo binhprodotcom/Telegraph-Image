@@ -22,6 +22,9 @@ export function createDefaultMetadata(id, overrides = {}) {
     capturedAt: timestamp,
     capturedMonth: new Date(timestamp).toISOString().slice(0, 7),
     tags: [],
+    clientAssetId: '',
+    contentHash: '',
+    uploadSource: 'web',
     ...overrides,
   };
 }
@@ -41,6 +44,9 @@ export function normalizeMetadata(metadata = {}, id) {
     capturedAt,
     capturedMonth: metadata.capturedMonth || new Date(capturedAt).toISOString().slice(0, 7),
     tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+    clientAssetId: metadata.clientAssetId || '',
+    contentHash: metadata.contentHash || '',
+    uploadSource: metadata.uploadSource || 'web',
   };
 }
 

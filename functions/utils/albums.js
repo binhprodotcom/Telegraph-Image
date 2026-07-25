@@ -1,6 +1,8 @@
 const ALBUM_KEY_PREFIX = '__bbc_album__:';
 const ALBUM_INDEX_PREFIX = '__bbc_album_index__:';
 const SHORT_KEY_PREFIX = 'short:';
+const ASSET_KEY_PREFIX = '__bbc_asset__:';
+const HASH_KEY_PREFIX = '__bbc_hash__:';
 const UNCLASSIFIED_ID = 'unclassified';
 const MAX_TIMESTAMP = 9999999999999;
 
@@ -36,6 +38,8 @@ export function isInternalStorageKey(name) {
     name.startsWith(ALBUM_KEY_PREFIX)
     || name.startsWith(ALBUM_INDEX_PREFIX)
     || name.startsWith(SHORT_KEY_PREFIX)
+    || name.startsWith(ASSET_KEY_PREFIX)
+    || name.startsWith(HASH_KEY_PREFIX)
   );
 }
 

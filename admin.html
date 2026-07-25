@@ -1003,6 +1003,7 @@
           <button class="button" id="renameAlbumButton" type="button" disabled>Đổi tên album</button>
           <button class="button danger" id="deleteAlbumButton" type="button" disabled>Xóa album</button>
           <button class="button" id="rebuildIndexButton" type="button">Đồng bộ ảnh cũ</button>
+          <button class="button" id="rebuildDedupeButton" type="button">Lập chỉ mục chống trùng</button>
         </div>
       </div>
       <div class="album-strip" id="albumStrip" aria-label="Danh sách album"></div>
@@ -1138,6 +1139,7 @@
       const renameAlbumButton = document.getElementById("renameAlbumButton");
       const deleteAlbumButton = document.getElementById("deleteAlbumButton");
       const rebuildIndexButton = document.getElementById("rebuildIndexButton");
+      const rebuildDedupeButton = document.getElementById("rebuildDedupeButton");
       const bulkBar = document.getElementById("bulkBar");
       const bulkCount = document.getElementById("bulkCount");
       const bulkAlbumSelect = document.getElementById("bulkAlbumSelect");
@@ -2012,6 +2014,41 @@
           await loadFiles({ reset: true });
         } catch (error) { toast(error.message, "error"); }
         finally { rebuildIndexButton.disabled = false; rebuildIndexButton.textContent = "Đồng bộ ảnh cũ"; }
+      });
+
+      rebuildDedupeButton.addEventListener("click", async () => {
+        const answer = await openActionDialog({
+          title: "Lập chỉ mục chống trùng",
+          message: "Hệ thống sẽ tạo dấu nhận diện từ tên file, dung lượng và ngày chụp cho ảnh cũ. Việc này không đổi link và giúp Shortcut tránh tải lại những ảnh đã có.",
+          icon: "≠",
+          confirmText: "Bắt đầu",
+        });
+        if (!answer.confirmed) return;
+
+        rebuildDedupeButton.disabled = true;
+        let cursor = null;
+        let indexed = 0;
+        let scanned = 0;
+        try {
+          do {
+            rebuildDedupeButton.textContent = `Đang xử lý… ${indexed}`;
+            const response = await api("/api/manage/backup/rebuild", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cursor, limit: 50 }),
+            });
+            const data = await response.json();
+            indexed += data.indexed || 0;
+            scanned += data.scanned || 0;
+            cursor = data.complete ? null : data.cursor;
+          } while (cursor);
+          toast(`Đã lập chỉ mục ${indexed}/${scanned} ảnh.`);
+        } catch (error) {
+          toast(error.message || "Không thể lập chỉ mục.", "error");
+        } finally {
+          rebuildDedupeButton.disabled = false;
+          rebuildDedupeButton.textContent = "Lập chỉ mục chống trùng";
+        }
       });
 
       bulkMoveButton.addEventListener("click", async () => {
