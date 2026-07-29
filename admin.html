@@ -1944,7 +1944,13 @@
           const response = await api("/api/manage/albums", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: album.id, name: answer.value })
+            body: JSON.stringify({
+              id: album.id,
+              name: answer.value,
+              currentName: album.name,
+              createdAt: album.createdAt,
+              updatedAt: album.updatedAt
+            })
           });
           const data = await response.json();
           const updated = data.album || { ...album, name: answer.value, updatedAt: Date.now() };

@@ -94,8 +94,39 @@ export async function getAlbum(env, albumId) {
   if (id === UNCLASSIFIED_ID) {
     return { id, name: 'Chưa phân loại', virtual: true, createdAt: 0, updatedAt: 0 };
   }
-  const record = await env.img_url.getWithMetadata(ALBUM_KEY_PREFIX + id);
-  return normalizeAlbumRecord(record?.metadata, id);
+
+  const key = ALBUM_KEY_PREFIX + id;
+  let record = null;
+
+  try {
+    record = await env.img_url.getWithMetadata(key);
+  } catch {
+    record = null;
+  }
+
+  // Bản mới lưu album ở cả metadata và JSON value. Một số bản cũ chỉ
+  // có một trong hai, vì vậy phải thử cả hai để tránh lỗi đổi tên 500.
+  let album = normalizeAlbumRecord(record?.metadata, id);
+
+  if (!album && record?.value) {
+    try {
+      album = normalizeAlbumRecord(JSON.parse(record.value), id);
+    } catch {
+      album = null;
+    }
+  }
+
+  // KV có thể trả kết quả đọc riêng bị cũ trong khi list() đã nhìn thấy key.
+  // Dùng danh sách làm lớp fallback cuối cùng.
+  if (!album) {
+    try {
+      album = (await listAlbums(env)).find(item => item.id === id) || null;
+    } catch {
+      album = null;
+    }
+  }
+
+  return album;
 }
 
 export async function albumExists(env, albumId) {
@@ -127,11 +158,28 @@ export async function createAlbum(env, name) {
   return album;
 }
 
-export async function renameAlbum(env, albumId, name) {
+export async function renameAlbum(env, albumId, name, fallback = {}) {
   const id = sanitizeAlbumId(albumId);
   if (id === UNCLASSIFIED_ID) throw new Error('Không thể đổi tên album Chưa phân loại.');
-  const current = await getAlbum(env, id);
-  if (!current) throw new Error('Không tìm thấy album.');
+
+  let current = await getAlbum(env, id);
+
+  // Khi album vừa được tạo/khởi tạo, KV có thể chưa đồng bộ lần đọc riêng.
+  // Dashboard gửi kèm dữ liệu album hiện tại để thao tác đổi tên vẫn hoàn tất.
+  if (!current) {
+    const fallbackName = normalizeAlbumName(fallback.name);
+    if (fallbackName) {
+      const now = Date.now();
+      current = {
+        id,
+        name: fallbackName,
+        createdAt: Number(fallback.createdAt) || now,
+        updatedAt: Number(fallback.updatedAt) || Number(fallback.createdAt) || now,
+      };
+    }
+  }
+
+  if (!current) throw new Error('Không tìm thấy album. Hãy làm mới trang rồi thử lại.');
 
   const normalizedName = normalizeAlbumName(name);
   if (!normalizedName) throw new Error('Tên album không được để trống.');
@@ -142,7 +190,7 @@ export async function renameAlbum(env, albumId, name) {
   );
   if (duplicate) throw new Error(`Đã có album tên “${duplicate.name}”.`);
 
-  const updated = { ...current, name: normalizedName, updatedAt: Date.now() };
+  const updated = { ...current, id, name: normalizedName, updatedAt: Date.now() };
   await putAlbum(env, updated);
   return updated;
 }
