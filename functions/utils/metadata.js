@@ -25,6 +25,15 @@ export function createDefaultMetadata(id, overrides = {}) {
     clientAssetId: '',
     contentHash: '',
     uploadSource: 'web',
+    storageMode: 'legacy',
+    storagePrimary: 'legacy',
+    r2Key: '',
+    r2Etag: '',
+    r2Version: '',
+    telegramFileId: '',
+    telegramMessageId: 0,
+    telegramStatus: '',
+    telegramError: '',
     ...overrides,
   };
 }
@@ -47,6 +56,15 @@ export function normalizeMetadata(metadata = {}, id) {
     clientAssetId: metadata.clientAssetId || '',
     contentHash: metadata.contentHash || '',
     uploadSource: metadata.uploadSource || 'web',
+    storageMode: metadata.storageMode || (metadata.r2Key ? 'r2-telegram' : 'legacy'),
+    storagePrimary: metadata.storagePrimary || (metadata.r2Key ? 'r2' : 'legacy'),
+    r2Key: metadata.r2Key || '',
+    r2Etag: metadata.r2Etag || '',
+    r2Version: metadata.r2Version || '',
+    telegramFileId: metadata.telegramFileId || '',
+    telegramMessageId: Number(metadata.telegramMessageId) || 0,
+    telegramStatus: metadata.telegramStatus || '',
+    telegramError: metadata.telegramError || '',
   };
 }
 

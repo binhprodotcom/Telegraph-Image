@@ -16,15 +16,12 @@ export function getUploadTarget(file) {
   if (file.type.startsWith('image/')) {
     return { endpoint: 'sendPhoto', field: 'photo' };
   }
-
   if (file.type.startsWith('audio/')) {
     return { endpoint: 'sendAudio', field: 'audio' };
   }
-
   if (file.type.startsWith('video/')) {
     return { endpoint: 'sendVideo', field: 'video' };
   }
-
   return { endpoint: 'sendDocument', field: 'document' };
 }
 
@@ -47,8 +44,12 @@ export function getFileId(response) {
   if (result.document) return result.document.file_id;
   if (result.video) return result.video.file_id;
   if (result.audio) return result.audio.file_id;
-
   return null;
+}
+
+export function getMessageId(response) {
+  const value = Number(response?.result?.message_id);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 export async function sendToTelegram(formData, apiEndpoint, env, retryCount = 0) {
@@ -61,7 +62,6 @@ export async function sendToTelegram(formData, apiEndpoint, env, retryCount = 0)
     if (response.ok) {
       return { success: true, data: responseData };
     }
-
     if (retryCount < MAX_RETRIES && apiEndpoint === 'sendPhoto') {
       console.log('Retrying image as document...');
       const newFormData = new FormData();
@@ -69,7 +69,6 @@ export async function sendToTelegram(formData, apiEndpoint, env, retryCount = 0)
       newFormData.append('document', formData.get('photo'));
       return await sendToTelegram(newFormData, 'sendDocument', env, retryCount + 1);
     }
-
     return {
       success: false,
       error: formatTelegramError(apiEndpoint, response, responseData),
@@ -84,13 +83,30 @@ export async function sendToTelegram(formData, apiEndpoint, env, retryCount = 0)
   }
 }
 
+export async function deleteTelegramMessage(env, messageId) {
+  const id = Number(messageId);
+  if (!id || !env.TG_Bot_Token || !env.TG_Chat_ID) return false;
+
+  try {
+    const form = new URLSearchParams({
+      chat_id: String(env.TG_Chat_ID),
+      message_id: String(id),
+    });
+    const response = await fetch(
+      `https://api.telegram.org/bot${env.TG_Bot_Token}/deleteMessage`,
+      { method: 'POST', body: form },
+    );
+    const data = await parseTelegramResponse(response);
+    return Boolean(response.ok && data?.ok);
+  } catch (error) {
+    console.warn('Unable to delete Telegram backup message:', error);
+    return false;
+  }
+}
+
 async function parseTelegramResponse(response) {
   const contentType = response.headers.get('Content-Type') || '';
-
-  if (contentType.includes('application/json')) {
-    return await response.json();
-  }
-
+  if (contentType.includes('application/json')) return await response.json();
   return { description: await response.text() };
 }
 
@@ -111,10 +127,7 @@ export async function getTelegramFilePath(env, fileId) {
 
     const responseData = await res.json();
     const { ok, result } = responseData;
-
-    if (ok && result) {
-      return result.file_path;
-    }
+    if (ok && result) return result.file_path;
 
     console.error('Error in response data:', responseData);
     return null;
