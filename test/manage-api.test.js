@@ -63,9 +63,30 @@ describe('manage API functions', function () {
     }));
 
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(await res.text(), '"cat.png"');
+    assert.strictEqual(JSON.parse(await res.text()).id, 'cat.png');
     assert.deepStrictEqual(img_url.operations.delete, ['cat.png']);
     assert.strictEqual(img_url.snapshot('cat.png'), undefined);
+  });
+
+  it('deletes an exact special-character KV key through the JSON endpoint', async function () {
+    const { onRequest } = await import('../functions/api/manage/delete.js');
+    const img_url = createMockKV({
+      'JbMH2H&': { ...baseMetadata, fileName: 'JbMH2H&' },
+    });
+
+    const res = await onRequest(makeContext({
+      request: new Request('https://example.com/api/manage/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: 'JbMH2H&' }),
+      }),
+      env: { img_url },
+    }));
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(JSON.parse(await res.text()).id, 'JbMH2H&');
+    assert.deepStrictEqual(img_url.operations.delete, ['JbMH2H&']);
+    assert.strictEqual(img_url.snapshot('JbMH2H&'), undefined);
   });
 
   it('removes the short link mapping when deleting a record', async function () {

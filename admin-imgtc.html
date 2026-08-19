@@ -587,7 +587,7 @@
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          fetch(`./api/manage/delete/${key}`, { method: 'GET', credentials: 'include' })
+          fetch(`./api/manage/delete/${encodeURIComponent(key)}`, { method: 'GET', credentials: 'include' })
             .then(response => response.ok ? this.tableData.splice(index, 1) : Promise.reject())
             .then(() => {
               this.updateStats();
@@ -626,7 +626,7 @@
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          const promises = this.selectedFiles.map(file => fetch(`./api/manage/delete/${file.name}`, { method: 'GET', credentials: 'include' }));
+          const promises = this.selectedFiles.map(file => fetch(`./api/manage/delete/${encodeURIComponent(file.name)}`, { method: 'GET', credentials: 'include' }));
 
           Promise.all(promises)
             .then(results => {
@@ -670,7 +670,7 @@
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          const promises = this.selectedFiles.map(file => fetch(`./api/manage/${type.toLowerCase()}/${file.name}`, { method: 'GET', credentials: 'include' }));
+          const promises = this.selectedFiles.map(file => fetch(`./api/manage/${type.toLowerCase()}/${encodeURIComponent(file.name)}`, { method: 'GET', credentials: 'include' }));
 
           Promise.all(promises)
             .then(responses => {
@@ -847,7 +847,7 @@
             return true;
           }
         }).then(({ value }) => {
-          fetch(`./api/manage/editName/${item.name}?newName=${encodeURIComponent(value)}`, {
+          fetch(`./api/manage/editName/${encodeURIComponent(item.name)}?newName=${encodeURIComponent(value)}`, {
             method: 'GET',
             credentials: 'include'
           })

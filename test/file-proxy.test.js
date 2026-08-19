@@ -63,6 +63,46 @@ describe('file proxy function', function () {
     assert.ok(Number.isFinite(stored.metadata.TimeStamp));
   });
 
+  it('does not create metadata when the upstream legacy file is missing', async function () {
+    const onRequest = await getOnRequest();
+    const img_url = createMockKV();
+
+    fetchMock = installFetchMock(async input => {
+      assert.strictEqual(String(input), 'https://telegra.ph//file/missing.png');
+      return new Response('missing', { status: 404 });
+    });
+
+    const res = await onRequest(makeContext({
+      request: new Request('https://example.com/file/missing.png'),
+      env: { img_url },
+      params: { id: 'missing.png' },
+    }));
+
+    assert.strictEqual(res.status, 404);
+    assert.strictEqual(img_url.snapshot('missing.png'), undefined);
+    assert.deepStrictEqual(img_url.operations.put, []);
+  });
+
+  it('rejects malformed short ids without creating phantom KV records', async function () {
+    const onRequest = await getOnRequest();
+    const img_url = createMockKV();
+
+    fetchMock = installFetchMock(async () => {
+      throw new Error('Malformed short ids must not reach upstream fetch.');
+    });
+
+    const res = await onRequest(makeContext({
+      request: new Request('https://example.com/file/JbMH2H%26'),
+      env: { img_url, ENABLE_SHORT_URLS: 'true' },
+      params: { id: 'JbMH2H&' },
+    }));
+
+    assert.strictEqual(res.status, 404);
+    assert.strictEqual(img_url.snapshot('JbMH2H&'), undefined);
+    assert.deepStrictEqual(img_url.operations.put, []);
+    assert.strictEqual(fetchMock.calls.length, 0);
+  });
+
   it('returns previewable proxied files inline when KV is not bound', async function () {
     const onRequest = await getOnRequest();
 

@@ -1,4 +1,5 @@
 import {
+    getMetadata,
     getOrCreateMetadata,
     isBlocked,
     isWhitelisted,
@@ -14,8 +15,19 @@ export async function onRequest(context) {
     const fileId = await resolveRequestedId(env, params.id);
     const isAdmin = request.headers.get('Referer')?.includes(`${url.origin}/admin`);
 
+    // When short URLs are enabled, a dotless request is either a valid short
+    // link or it is invalid. Do not let malformed/unknown short-like paths
+    // fall through to the legacy Telegraph proxy: doing so used to create
+    // phantom KV records such as "JbMH2H&" before the upstream 404 was known.
+    if (!fileId) {
+        return new Response('File not found.', {
+            status: 404,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+    }
+
     let metadata = null;
-    if (env.img_url) metadata = await getOrCreateMetadata(env, fileId);
+    if (env.img_url) metadata = await getMetadata(env, fileId);
 
     if (!isAdmin && metadata) {
         if (isBlocked(metadata)) {
@@ -29,6 +41,12 @@ export async function onRequest(context) {
         if (!isWhitelisted(metadata) && env.WhiteList_Mode === "true") {
             return Response.redirect(`${url.origin}/whitelist-on.html`, 302);
         }
+    }
+
+    // Missing metadata is never whitelisted. Keep whitelist mode behavior
+    // without writing a dashboard record for an unverified path.
+    if (!isAdmin && !metadata && env.img_url && env.WhiteList_Mode === "true") {
+        return Response.redirect(`${url.origin}/whitelist-on.html`, 302);
     }
 
     // R2 is the primary source for new dual-storage records.
@@ -56,6 +74,8 @@ export async function onRequest(context) {
         body: request.body,
     });
 
+    // Critical: only create metadata after the upstream file is confirmed to
+    // exist. Failed/bot/scanner requests must never appear in the dashboard.
     if (!response.ok) return response;
     if (isAdmin || !env.img_url) return withFileHeaders(response, metadata?.fileName || fileId);
 
@@ -76,12 +96,19 @@ export async function onRequest(context) {
 }
 
 async function resolveRequestedId(env, requestedId) {
-    if (!env.img_url || !isShortUrlsEnabled(env) || requestedId.includes('.') || !looksLikeShortId(requestedId)) {
-        return requestedId;
+    const id = String(requestedId || '');
+    if (!id) return null;
+
+    if (!env.img_url || !isShortUrlsEnabled(env) || id.includes('.')) {
+        return id;
     }
 
-    const target = await resolveShortId(env, requestedId);
-    return target || requestedId;
+    // With short URLs enabled, dotless paths must be strict alphanumeric short
+    // IDs. Characters such as &, %, ?, #, spaces, etc. are rejected early.
+    if (!looksLikeShortId(id)) return null;
+
+    const target = await resolveShortId(env, id);
+    return target || null;
 }
 
 async function resolveLegacyFileUrl(env, url, fileId, metadata) {

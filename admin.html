@@ -1813,7 +1813,13 @@
         });
         if (!answer.confirmed) return;
         try {
-          await api(`/api/manage/delete/${encodeURIComponent(file.name)}`);
+          // Send the exact KV key in JSON instead of embedding it in the URL.
+          // This avoids route/percent-encoding bugs for keys containing &, %, etc.
+          await api("/api/manage/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: file.name }),
+          });
           state.files = state.files.filter(item => item.name !== file.name);
           state.selected.delete(file.name);
           render();
