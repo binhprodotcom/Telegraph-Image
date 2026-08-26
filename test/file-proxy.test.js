@@ -54,7 +54,7 @@ describe('file proxy function', function () {
     assert.strictEqual(fetchMock.calls.length, 1);
 
     const stored = img_url.snapshot('cat.png');
-    assert.strictEqual(stored.value, '');
+    assert.strictEqual(JSON.parse(stored.value).fileName, 'cat.png');
     assert.strictEqual(stored.metadata.ListType, 'None');
     assert.strictEqual(stored.metadata.Label, 'None');
     assert.strictEqual(stored.metadata.fileName, 'cat.png');

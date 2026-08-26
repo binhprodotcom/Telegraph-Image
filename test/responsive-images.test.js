@@ -101,7 +101,7 @@ describe('responsive R2 images', function () {
   it('uploads only smaller variants and stores their R2 metadata', async function () {
     const { onRequestPost } = await import('../functions/upload.js');
     const IMAGE_BUCKET = createMockR2();
-    const img_url = createMockKV();
+    const img_url = createMockKV({}, { metadataLimitBytes: 1024 });
     const formData = new FormData();
     formData.append('file', new File(['original'], 'poster.png', { type: 'image/png' }));
     formData.append('albumId', 'unclassified');
@@ -132,10 +132,16 @@ describe('responsive R2 images', function () {
     assert.strictEqual(IMAGE_BUCKET.operations.put.some(operation => operation.key.endsWith('.w1600.webp')), false);
 
     const publicId = result.src.split('/').pop();
-    const metadata = img_url.snapshot(publicId).metadata;
+    const stored = img_url.snapshot(publicId);
+    const metadata = stored.metadata;
+    const fullMetadata = JSON.parse(stored.value);
+    const metadataBytes = new TextEncoder().encode(JSON.stringify(metadata)).byteLength;
+    assert.ok(metadataBytes <= 1024, `KV metadata must be <= 1024 bytes, got ${metadataBytes}`);
     assert.strictEqual(metadata.imageWidth, 1200);
     assert.strictEqual(metadata.imageHeight, 800);
     assert.deepStrictEqual(Object.keys(metadata.responsiveVariants), ['480', '960']);
+    assert.strictEqual(fullMetadata.responsiveVariants['480'].height, 320);
+    assert.ok(fullMetadata.responsiveVariants['480'].etag);
   });
 
   it('deletes the original and every generated variant', async function () {
@@ -155,6 +161,40 @@ describe('responsive R2 images', function () {
       'uploads/original.w480.webp',
       'uploads/original.w960.webp',
     ]);
+  });
+
+  it('keeps three responsive variants below the Workers KV metadata limit', async function () {
+    const {
+      createDefaultMetadata,
+      createKvFileMetadata,
+      kvMetadataSize,
+    } = await import('../functions/utils/metadata.js');
+    const root = 'uploads/2026/08/12345678-1234-4234-8234-123456789abc.jpg';
+    const verboseVariant = width => ({
+      r2Key: root.replace('.jpg', `.w${width}.webp`),
+      width,
+      height: Math.round(width * 0.67),
+      fileSize: 180000,
+      etag: 'etag-value-that-does-not-belong-in-kv-list-metadata',
+      version: 'version-value-that-does-not-belong-in-kv-list-metadata',
+      contentType: 'image/webp',
+    });
+    const full = createDefaultMetadata('r2_photo.jpg', {
+      fileName: 'Vina-Vit-Lon-Display-Typeface-mien-phi.jpg',
+      clientAssetId: `v1|${'x'.repeat(300)}`,
+      contentHash: 'f'.repeat(64),
+      r2Key: root,
+      responsiveVariants: {
+        480: verboseVariant(480),
+        960: verboseVariant(960),
+        1600: verboseVariant(1600),
+      },
+    });
+
+    const compact = createKvFileMetadata(full, 'r2_photo.jpg');
+    assert.ok(kvMetadataSize(compact) <= 1024);
+    assert.deepStrictEqual(Object.keys(compact.responsiveVariants), ['480', '960', '1600']);
+    assert.deepStrictEqual(Object.keys(compact.responsiveVariants['1600']), ['r2Key']);
   });
 
   it('rejects an uploaded variant that would upscale a small source', async function () {

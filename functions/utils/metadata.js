@@ -9,6 +9,8 @@ export const LABEL = {
   ADULT: 'adult',
 };
 
+export const KV_METADATA_MAX_BYTES = 1024;
+
 export function createDefaultMetadata(id, overrides = {}) {
   const timestamp = Date.now();
   return {
@@ -103,14 +105,82 @@ function normalizeResponsiveVariants(value) {
   return normalized;
 }
 
+export function createKvFileMetadata(metadata = {}, id = '') {
+  const normalized = normalizeMetadata(metadata, id);
+  const responsiveVariants = {};
+
+  for (const [width, variant] of Object.entries(normalized.responsiveVariants || {})) {
+    if (variant?.r2Key) responsiveVariants[width] = { r2Key: variant.r2Key };
+  }
+
+  const compact = {
+    TimeStamp: normalized.TimeStamp,
+    ListType: normalized.ListType,
+    Label: normalized.Label,
+    liked: normalized.liked,
+    fileName: String(normalized.fileName || id).slice(0, 160),
+    fileSize: normalized.fileSize,
+    albumId: normalized.albumId,
+    capturedAt: normalized.capturedAt,
+    capturedMonth: normalized.capturedMonth,
+    tags: normalized.tags.slice(0, 4).map(tag => String(tag).slice(0, 32)),
+    storageMode: normalized.storageMode,
+    storagePrimary: normalized.storagePrimary,
+    r2Key: normalized.r2Key,
+    imageWidth: normalized.imageWidth,
+    imageHeight: normalized.imageHeight,
+    responsiveVariants,
+    ...(normalized.shortId ? { shortId: normalized.shortId } : {}),
+  };
+
+  // KV metadata has a hard 1024-byte limit. The complete record is stored in
+  // the KV value; this compact copy only supports list views and dedupe checks.
+  if (kvMetadataSize(compact) > KV_METADATA_MAX_BYTES) compact.tags = [];
+  if (kvMetadataSize(compact) > KV_METADATA_MAX_BYTES) compact.fileName = compact.fileName.slice(0, 80);
+  if (kvMetadataSize(compact) > KV_METADATA_MAX_BYTES) {
+    delete compact.imageWidth;
+    delete compact.imageHeight;
+  }
+
+  if (kvMetadataSize(compact) > KV_METADATA_MAX_BYTES) {
+    throw new Error('Metadata ảnh vượt giới hạn 1024 byte của Workers KV.');
+  }
+
+  return compact;
+}
+
+export function metadataFromKvRecord(record, id = '') {
+  if (!record) return null;
+
+  let valueMetadata = null;
+  if (typeof record.value === 'string' && record.value.trim()) {
+    try {
+      const parsed = JSON.parse(record.value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) valueMetadata = parsed;
+    } catch {
+      valueMetadata = null;
+    }
+  }
+
+  const source = valueMetadata
+    ? { ...(record.metadata || {}), ...valueMetadata }
+    : record.metadata;
+  return source ? normalizeMetadata(source, id) : null;
+}
+
+export function kvMetadataSize(metadata) {
+  return new TextEncoder().encode(JSON.stringify(metadata || {})).byteLength;
+}
+
 export async function getMetadata(env, id) {
   const record = await env.img_url.getWithMetadata(id);
-  return record?.metadata || null;
+  return metadataFromKvRecord(record, id);
 }
 
 export async function getOrCreateMetadata(env, id) {
   const record = await env.img_url.getWithMetadata(id);
-  if (record?.metadata) return normalizeMetadata(record.metadata, id);
+  const existing = metadataFromKvRecord(record, id);
+  if (existing) return existing;
 
   const metadata = createDefaultMetadata(id);
   await putMetadata(env, id, metadata);
@@ -118,7 +188,10 @@ export async function getOrCreateMetadata(env, id) {
 }
 
 export async function putMetadata(env, id, metadata) {
-  await env.img_url.put(id, '', { metadata });
+  const normalized = normalizeMetadata(metadata, id);
+  await env.img_url.put(id, JSON.stringify(normalized), {
+    metadata: createKvFileMetadata(normalized, id),
+  });
 }
 
 export async function updateMetadata(env, id, updater) {

@@ -1,3 +1,8 @@
+import {
+  createKvFileMetadata,
+  metadataFromKvRecord,
+} from './metadata.js';
+
 const ALBUM_KEY_PREFIX = '__bbc_album__:';
 const ALBUM_INDEX_PREFIX = '__bbc_album_index__:';
 const SHORT_KEY_PREFIX = 'short:';
@@ -229,7 +234,7 @@ export async function deleteAlbumBatch(env, albumId, batchSize = 20) {
 
 export async function getFileMetadata(env, fileId) {
   const record = await env.img_url.getWithMetadata(fileId);
-  return record?.metadata || null;
+  return metadataFromKvRecord(record, fileId);
 }
 
 export async function saveFileWithAlbumIndex(env, fileId, metadata, previousIndexKey = null) {
@@ -238,7 +243,9 @@ export async function saveFileWithAlbumIndex(env, fileId, metadata, previousInde
   const oldIndexKey = previousIndexKey || normalized.albumIndexKey || null;
   normalized.albumIndexKey = nextIndexKey;
 
-  await env.img_url.put(fileId, '', { metadata: normalized });
+  await env.img_url.put(fileId, JSON.stringify(normalized), {
+    metadata: createKvFileMetadata(normalized, fileId),
+  });
   await env.img_url.put(nextIndexKey, '', { metadata: createIndexMetadata(fileId, normalized) });
 
   if (oldIndexKey && oldIndexKey !== nextIndexKey) {

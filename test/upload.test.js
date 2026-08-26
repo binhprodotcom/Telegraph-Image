@@ -70,7 +70,7 @@ describe('upload function', function () {
     assert.strictEqual(fetchMock.calls.length, 1);
 
     const stored = img_url.snapshot('large-id.png');
-    assert.strictEqual(stored.value, '');
+    assert.strictEqual(JSON.parse(stored.value).telegramFileId, 'large-id.png');
     assert.strictEqual(stored.metadata.ListType, 'None');
     assert.strictEqual(stored.metadata.Label, 'None');
     assert.strictEqual(stored.metadata.fileName, 'cat.png');

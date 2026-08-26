@@ -18,8 +18,9 @@ function normalizeEntry(entry) {
   };
 }
 
-function createMockKV(initial = {}) {
+function createMockKV(initial = {}, options = {}) {
   const store = new Map();
+  const metadataLimitBytes = Number(options.metadataLimitBytes) || 0;
   const operations = {
     get: [],
     put: [],
@@ -39,8 +40,12 @@ function createMockKV(initial = {}) {
       if (!entry) return { value: null, metadata: null };
       return { value: entry.value, metadata: clone(entry.metadata) };
     },
-    async put(key, value, options = {}) {
-      const metadata = clone(options.metadata);
+    async put(key, value, putOptions = {}) {
+      const metadata = clone(putOptions.metadata);
+      if (metadataLimitBytes) {
+        const size = new TextEncoder().encode(JSON.stringify(metadata || {})).byteLength;
+        if (size > metadataLimitBytes) throw new Error('KV PUT failed: 413 Payload Too Large');
+      }
       operations.put.push({ key, value, metadata });
       store.set(key, { value, metadata });
     },

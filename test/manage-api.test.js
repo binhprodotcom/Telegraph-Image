@@ -34,7 +34,7 @@ describe('manage API functions', function () {
     const metadata = JSON.parse(await res.text());
     assert.strictEqual(metadata.ListType, 'Block');
     assert.strictEqual(metadata.fileName, 'cat.png');
-    assert.deepStrictEqual(img_url.snapshot('cat.png').metadata, metadata);
+    assert.deepStrictEqual(JSON.parse(img_url.snapshot('cat.png').value), metadata);
   });
 
   it('marks a record as whitelisted while preserving other metadata', async function () {
@@ -50,7 +50,7 @@ describe('manage API functions', function () {
     const metadata = JSON.parse(await res.text());
     assert.strictEqual(metadata.ListType, 'White');
     assert.strictEqual(metadata.fileSize, 123);
-    assert.deepStrictEqual(img_url.snapshot('cat.png').metadata, metadata);
+    assert.deepStrictEqual(JSON.parse(img_url.snapshot('cat.png').value), metadata);
   });
 
   it('deletes a KV record and returns the deleted id', async function () {

@@ -1,6 +1,7 @@
-import { isInternalStorageKey } from '../../../utils/albums.js';
+import { getFileMetadata, isInternalStorageKey } from '../../../utils/albums.js';
 import { buildLegacyAssetIndex } from '../../../utils/dedupe.js';
 import { jsonResponse } from '../../../utils/http.js';
+import { putMetadata } from '../../../utils/metadata.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -17,8 +18,7 @@ export async function onRequestPost(context) {
     if (isInternalStorageKey(key.name)) continue;
     scanned += 1;
 
-    const record = await env.img_url.getWithMetadata(key.name);
-    const metadata = record?.metadata;
+    const metadata = await getFileMetadata(env, key.name);
     if (!metadata) {
       skipped += 1;
       continue;
@@ -28,8 +28,9 @@ export async function onRequestPost(context) {
     if (result.indexed) {
       indexed += 1;
       if (!metadata.clientAssetId) {
-        await env.img_url.put(key.name, '', {
-          metadata: { ...metadata, clientAssetId: result.clientAssetId },
+        await putMetadata(env, key.name, {
+          ...metadata,
+          clientAssetId: result.clientAssetId,
         });
       }
     } else {

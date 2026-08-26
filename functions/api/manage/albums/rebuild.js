@@ -1,5 +1,6 @@
 import { jsonResponse } from '../../../utils/http.js';
 import {
+  getFileMetadata,
   isInternalStorageKey,
   normalizeAlbumMetadata,
   saveFileWithAlbumIndex,
@@ -15,11 +16,7 @@ export async function onRequestPost({ request, env }) {
 
   for (const key of result.keys) {
     if (isInternalStorageKey(key.name)) continue;
-    let metadata = key.metadata;
-    if (!metadata) {
-      const record = await env.img_url.getWithMetadata(key.name);
-      metadata = record?.metadata;
-    }
+    const metadata = await getFileMetadata(env, key.name);
     if (!metadata) continue;
 
     const normalized = normalizeAlbumMetadata(metadata, key.name);

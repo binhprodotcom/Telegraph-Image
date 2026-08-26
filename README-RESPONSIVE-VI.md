@@ -2,6 +2,12 @@
 
 Source này giữ nguyên file gốc và tự tạo các bản WebP nhỏ ngay trong trình duyệt trước khi upload lên R2.
 
+## Bản vá 1.0.1
+
+- Sửa lỗi upload `KV PUT failed: 413 Payload Too Large` khi ảnh tạo nhiều bản responsive.
+- Metadata đầy đủ được lưu trong KV value; KV metadata chỉ giữ bản gọn dưới giới hạn 1024 byte của Cloudflare.
+- Tương thích dữ liệu cũ: record cũ chỉ có KV metadata vẫn được đọc bình thường.
+
 ## Quy tắc tạo ảnh
 
 - Các chiều rộng chuẩn: `480`, `960`, `1600` px.
