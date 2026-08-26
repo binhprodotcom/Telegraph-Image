@@ -52,7 +52,8 @@ export async function onRequest(context) {
     // R2 is the primary source for new dual-storage records.
     if (metadata?.r2Key) {
         try {
-            const r2Response = await getR2Response(env, request, metadata, fileId);
+            const requestedWidth = url.searchParams.get('w');
+            const r2Response = await getCachedR2Response(context, metadata, fileId, requestedWidth);
             if (r2Response) return withFileHeaders(r2Response, metadata.fileName || fileId);
             console.warn(`R2 object not found for ${fileId}; falling back to Telegram.`);
         } catch (error) {
@@ -93,6 +94,38 @@ export async function onRequest(context) {
 
     await putMetadata(env, fileId, effectiveMetadata);
     return withFileHeaders(response, effectiveMetadata.fileName || fileId);
+}
+
+async function getCachedR2Response(context, metadata, fileId, requestedWidth) {
+    const { request, env } = context;
+    const cache = request.method === 'GET' ? globalThis.caches?.default : null;
+    const cacheRequest = cache ? new Request(request.url, { method: 'GET' }) : null;
+
+    if (cache && cacheRequest) {
+        const cached = await cache.match(cacheRequest);
+        if (cached) return withCacheHeader(cached, 'HIT');
+    }
+
+    const response = await getR2Response(env, request, metadata, fileId, requestedWidth);
+    if (!response) return null;
+
+    if (cache && cacheRequest && response.ok) {
+        const cacheWrite = cache.put(cacheRequest, response.clone());
+        if (typeof context.waitUntil === 'function') context.waitUntil(cacheWrite);
+        else await cacheWrite;
+    }
+
+    return withCacheHeader(response, cache ? 'MISS' : 'BYPASS');
+}
+
+function withCacheHeader(response, status) {
+    const headers = new Headers(response.headers);
+    headers.set('X-BBC-Cache', status);
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
 }
 
 async function resolveRequestedId(env, requestedId) {

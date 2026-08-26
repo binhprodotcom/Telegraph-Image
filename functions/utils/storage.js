@@ -1,4 +1,5 @@
 const DEFAULT_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+export const RESPONSIVE_IMAGE_WIDTHS = Object.freeze([480, 960, 1600]);
 
 export function getStoragePlan(env) {
   const requested = String(env.STORAGE_MODE || '').trim().toLowerCase();
@@ -50,6 +51,9 @@ export async function putR2Object(env, {
   contentHash = '',
   originalName = '',
   capturedAt = Date.now(),
+  variantWidth = 0,
+  variantHeight = 0,
+  sourceKey = '',
 } = {}) {
   if (!env.IMAGE_BUCKET) throw new Error('R2 binding IMAGE_BUCKET chưa được cấu hình.');
   if (!key || !file) throw new Error('Thiếu dữ liệu để lưu vào R2.');
@@ -64,6 +68,9 @@ export async function putR2Object(env, {
       originalName: String(originalName || file.name || '').slice(0, 256),
       contentHash: String(contentHash || '').slice(0, 128),
       capturedAt: String(Number(capturedAt) || Date.now()),
+      ...(variantWidth ? { variantWidth: String(variantWidth) } : {}),
+      ...(variantHeight ? { variantHeight: String(variantHeight) } : {}),
+      ...(sourceKey ? { sourceKey: String(sourceKey).slice(0, 512) } : {}),
     },
   });
 
@@ -71,12 +78,29 @@ export async function putR2Object(env, {
   return object;
 }
 
-export async function getR2Response(env, request, metadata, publicId) {
+export function createR2VariantKey(r2Key, width) {
+  const normalizedWidth = normalizeResponsiveWidth(width);
+  if (!r2Key || !normalizedWidth) throw new Error('Thiếu key hoặc width hợp lệ cho ảnh responsive.');
+  const extensionIndex = r2Key.lastIndexOf('.');
+  const base = extensionIndex > r2Key.lastIndexOf('/') ? r2Key.slice(0, extensionIndex) : r2Key;
+  return `${base}.w${normalizedWidth}.webp`;
+}
+
+export function normalizeResponsiveWidth(width) {
+  const value = Number.parseInt(String(width || ''), 10);
+  return RESPONSIVE_IMAGE_WIDTHS.includes(value) ? value : 0;
+}
+
+export async function getR2Response(env, request, metadata, publicId, requestedWidth = 0) {
   if (!env.IMAGE_BUCKET || !metadata?.r2Key) return null;
 
+  const width = normalizeResponsiveWidth(requestedWidth);
+  const variant = width ? metadata.responsiveVariants?.[String(width)] : null;
+  const objectKey = variant?.r2Key || metadata.r2Key;
+
   const object = request.method === 'HEAD'
-    ? await env.IMAGE_BUCKET.head(metadata.r2Key)
-    : await env.IMAGE_BUCKET.get(metadata.r2Key);
+    ? await env.IMAGE_BUCKET.head(objectKey)
+    : await env.IMAGE_BUCKET.get(objectKey);
 
   if (!object) return null;
 
@@ -86,8 +110,11 @@ export async function getR2Response(env, request, metadata, publicId) {
   headers.set('Cache-Control', headers.get('Cache-Control') || DEFAULT_CACHE_CONTROL);
   headers.set('Accept-Ranges', 'bytes');
   headers.set('X-BBC-Storage', 'r2');
+  headers.set('X-BBC-Responsive-Width', variant ? String(width) : 'original');
 
-  const filename = metadata.fileName || publicId;
+  const filename = variant
+    ? responsiveFilename(metadata.fileName || publicId, width)
+    : metadata.fileName || publicId;
   headers.set('Content-Disposition', `inline; filename="${escapeFilename(filename)}"`);
 
   return new Response(request.method === 'HEAD' ? null : object.body, {
@@ -98,8 +125,19 @@ export async function getR2Response(env, request, metadata, publicId) {
 
 export async function deleteR2Object(env, metadata) {
   if (!env.IMAGE_BUCKET || !metadata?.r2Key) return false;
-  await env.IMAGE_BUCKET.delete(metadata.r2Key);
+  const keys = [
+    metadata.r2Key,
+    ...Object.values(metadata.responsiveVariants || {}).map(variant => variant?.r2Key),
+  ].filter((key, index, all) => key && all.indexOf(key) === index);
+  await Promise.all(keys.map(key => env.IMAGE_BUCKET.delete(key)));
   return true;
+}
+
+function responsiveFilename(filename, width) {
+  const name = String(filename || 'image');
+  const extensionIndex = name.lastIndexOf('.');
+  const base = extensionIndex > 0 ? name.slice(0, extensionIndex) : name;
+  return `${base}-w${width}.webp`;
 }
 
 function safeExtension(fileName) {

@@ -30,7 +30,9 @@ import {
   validateTelegramConfig,
 } from './utils/telegram.js';
 import {
+  RESPONSIVE_IMAGE_WIDTHS,
   createR2Identity,
+  createR2VariantKey,
   deleteR2Object,
   getStoragePlan,
   putR2Object,
@@ -38,6 +40,9 @@ import {
 } from './utils/storage.js';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const MAX_RESPONSIVE_VARIANT_BYTES = 8 * 1024 * 1024;
+const MAX_RESPONSIVE_TOTAL_BYTES = 20 * 1024 * 1024;
+const RESPONSIVE_SOURCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -101,6 +106,8 @@ export async function onRequestPost(context) {
       ? capturedAtValue
       : Date.now();
 
+    const responsiveUpload = readResponsiveUpload(formData, uploadFile);
+
     const fileName = uploadFile.name || `upload-${capturedAt}.jpg`;
     const fileExtension = (fileName.includes('.') ? fileName.split('.').pop() : 'jpg').toLowerCase();
     const suppliedClientAssetId = normalizeClientAssetId(formData.get('clientAssetId'));
@@ -148,6 +155,30 @@ export async function onRequestPost(context) {
 
       r2Metadata.r2Etag = r2Object.etag || '';
       r2Metadata.r2Version = r2Object.version || '';
+      r2Metadata.responsiveVariants = {};
+
+      for (const variant of responsiveUpload.variants) {
+        const variantKey = createR2VariantKey(identity.r2Key, variant.width);
+        const variantObject = await putR2Object(env, {
+          key: variantKey,
+          file: variant.file,
+          contentHash,
+          originalName: `${fileName}-w${variant.width}.webp`,
+          capturedAt,
+          variantWidth: variant.width,
+          variantHeight: variant.height,
+          sourceKey: identity.r2Key,
+        });
+        r2Metadata.responsiveVariants[String(variant.width)] = {
+          r2Key: variantKey,
+          width: variant.width,
+          height: variant.height,
+          fileSize: variant.file.size,
+          etag: variantObject.etag || '',
+          version: variantObject.version || '',
+          contentType: 'image/webp',
+        };
+      }
     }
 
     let telegramLongId = '';
@@ -197,6 +228,9 @@ export async function onRequestPost(context) {
         r2Key: r2Metadata?.r2Key || '',
         r2Etag: r2Metadata?.r2Etag || '',
         r2Version: r2Metadata?.r2Version || '',
+        imageWidth: responsiveUpload.imageWidth,
+        imageHeight: responsiveUpload.imageHeight,
+        responsiveVariants: r2Metadata?.responsiveVariants || {},
         telegramFileId: telegramLongId,
         telegramMessageId: telegramMessageId || 0,
         telegramStatus,
@@ -222,6 +256,7 @@ export async function onRequestPost(context) {
       duplicate: false,
       storage: storagePlan.useR2 ? 'r2' : 'telegram',
       telegramBackup: telegramStatus === 'stored',
+      responsiveWidths: Object.keys(r2Metadata?.responsiveVariants || {}).map(Number),
       ...(telegramError ? { warning: telegramError } : {}),
     }]);
   } catch (error) {
@@ -239,8 +274,67 @@ export async function onRequestPost(context) {
       await deleteTelegramMessage(env, telegramMessageId);
     }
 
-    return jsonResponse({ error: error.message }, { status: 500 });
+    return jsonResponse({ error: error.message }, { status: error.statusCode || 500 });
   }
+}
+
+function readResponsiveUpload(formData, uploadFile) {
+  const imageWidth = positiveDimension(formData.get('imageWidth'));
+  const imageHeight = positiveDimension(formData.get('imageHeight'));
+  const sourceType = String(uploadFile.type || '').toLowerCase();
+
+  if (!RESPONSIVE_SOURCE_TYPES.has(sourceType)) {
+    return { imageWidth: 0, imageHeight: 0, variants: [] };
+  }
+
+  if (!imageWidth || !imageHeight) {
+    const hasVariant = RESPONSIVE_IMAGE_WIDTHS.some(width => formData.get(`variant_${width}`));
+    if (hasVariant) throw uploadValidationError('Thiếu kích thước ảnh gốc cho các bản responsive.');
+    return { imageWidth: 0, imageHeight: 0, variants: [] };
+  }
+
+  const variants = [];
+  let totalBytes = 0;
+
+  for (const width of RESPONSIVE_IMAGE_WIDTHS) {
+    const file = formData.get(`variant_${width}`);
+    if (!file || typeof file.arrayBuffer !== 'function') continue;
+    if (width >= imageWidth) {
+      throw uploadValidationError(`Không được phóng ảnh gốc ${imageWidth}px lên bản ${width}px.`);
+    }
+    if (String(file.type || '').toLowerCase() !== 'image/webp') {
+      throw uploadValidationError(`Bản responsive ${width}px phải có định dạng WebP.`);
+    }
+    if (file.size > MAX_RESPONSIVE_VARIANT_BYTES) {
+      throw uploadValidationError(`Bản responsive ${width}px vượt quá giới hạn 8 MB.`, 413);
+    }
+
+    const height = positiveDimension(formData.get(`variantHeight_${width}`));
+    const expectedHeight = Math.max(1, Math.round(imageHeight * width / imageWidth));
+    if (!height || Math.abs(height - expectedHeight) > 2) {
+      throw uploadValidationError(`Tỉ lệ bản responsive ${width}px không khớp ảnh gốc.`);
+    }
+
+    totalBytes += file.size;
+    variants.push({ width, height, file });
+  }
+
+  if (totalBytes > MAX_RESPONSIVE_TOTAL_BYTES) {
+    throw uploadValidationError('Tổng dung lượng ảnh responsive vượt quá giới hạn 20 MB.', 413);
+  }
+
+  return { imageWidth, imageHeight, variants };
+}
+
+function positiveDimension(value) {
+  const number = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(number) && number > 0 && number <= 50000 ? number : 0;
+}
+
+function uploadValidationError(message, statusCode = 400) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
 }
 
 function duplicateResponse(duplicate, reason) {

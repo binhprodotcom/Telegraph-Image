@@ -449,7 +449,7 @@ describe('file proxy function', function () {
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(await res.text(), 'image-body');
-    assert.deepStrictEqual(img_url.operations.get, []);
+    assert.deepStrictEqual(img_url.operations.get, ['cat.png']);
     assert.deepStrictEqual(img_url.operations.put, []);
   });
 });

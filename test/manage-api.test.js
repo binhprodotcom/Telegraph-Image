@@ -151,10 +151,10 @@ describe('manage API functions', function () {
     }));
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(JSON.parse(await res.text()), {
-      success: true,
-      fileName: 'kitten.png',
-    });
+    const body = JSON.parse(await res.text());
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.fileName, 'kitten.png');
+    assert.strictEqual(body.metadata.fileName, 'kitten.png');
     assert.strictEqual(img_url.snapshot('cat.png').metadata.fileName, 'kitten.png');
   });
 

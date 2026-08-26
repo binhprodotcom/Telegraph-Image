@@ -30,6 +30,9 @@ export function createDefaultMetadata(id, overrides = {}) {
     r2Key: '',
     r2Etag: '',
     r2Version: '',
+    imageWidth: 0,
+    imageHeight: 0,
+    responsiveVariants: {},
     telegramFileId: '',
     telegramMessageId: 0,
     telegramStatus: '',
@@ -61,11 +64,43 @@ export function normalizeMetadata(metadata = {}, id) {
     r2Key: metadata.r2Key || '',
     r2Etag: metadata.r2Etag || '',
     r2Version: metadata.r2Version || '',
+    imageWidth: positiveInteger(metadata.imageWidth),
+    imageHeight: positiveInteger(metadata.imageHeight),
+    responsiveVariants: normalizeResponsiveVariants(metadata.responsiveVariants),
     telegramFileId: metadata.telegramFileId || '',
     telegramMessageId: Number(metadata.telegramMessageId) || 0,
     telegramStatus: metadata.telegramStatus || '',
     telegramError: metadata.telegramError || '',
   };
+}
+
+function positiveInteger(value) {
+  const number = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function normalizeResponsiveVariants(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const allowedWidths = new Set([480, 960, 1600]);
+  const normalized = {};
+
+  for (const [key, variant] of Object.entries(value)) {
+    const width = positiveInteger(key);
+    if (!allowedWidths.has(width) || !variant || typeof variant !== 'object') continue;
+    const r2Key = String(variant.r2Key || '').slice(0, 512);
+    if (!r2Key) continue;
+    normalized[String(width)] = {
+      r2Key,
+      width,
+      height: positiveInteger(variant.height),
+      fileSize: positiveInteger(variant.fileSize),
+      etag: String(variant.etag || '').slice(0, 256),
+      version: String(variant.version || '').slice(0, 256),
+      contentType: 'image/webp',
+    };
+  }
+
+  return normalized;
 }
 
 export async function getMetadata(env, id) {

@@ -1034,7 +1034,137 @@
         setMessage(`Ảnh trong hàng đợi sẽ được lưu vào album: ${name}.`);
       });
 
+      const RESPONSIVE_IMAGE_WIDTHS = [480, 960, 1600];
+      const RESPONSIVE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+      const RESPONSIVE_WEBP_QUALITY = 0.92;
+
+      async function prepareResponsiveUpload(file) {
+        if (!RESPONSIVE_IMAGE_TYPES.has(String(file.type || "").toLowerCase())) {
+          return { imageWidth: 0, imageHeight: 0, variants: [] };
+        }
+
+        const dimensions = await readImageDimensions(file);
+        if (await isLikelyAnimatedImage(file)) {
+          return { imageWidth: dimensions.width, imageHeight: dimensions.height, variants: [] };
+        }
+        const widths = RESPONSIVE_IMAGE_WIDTHS.filter(width => width < dimensions.width);
+        const variants = [];
+
+        for (const width of widths) {
+          const height = Math.max(1, Math.round(dimensions.height * width / dimensions.width));
+          const blob = await createResponsiveWebp(file, width, height);
+          variants.push({ width, height, blob });
+        }
+
+        return {
+          imageWidth: dimensions.width,
+          imageHeight: dimensions.height,
+          variants,
+        };
+      }
+
+      async function isLikelyAnimatedImage(file) {
+        const type = String(file.type || "").toLowerCase();
+        if (type !== "image/webp" && type !== "image/png") return false;
+        const header = await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer();
+        const binary = new TextDecoder("latin1").decode(header);
+        return type === "image/webp" ? binary.includes("ANIM") : binary.includes("acTL");
+      }
+
+      async function readImageDimensions(file) {
+        if (typeof createImageBitmap === "function") {
+          try {
+            const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+            const dimensions = { width: bitmap.width, height: bitmap.height };
+            bitmap.close?.();
+            if (dimensions.width && dimensions.height) return dimensions;
+          } catch (error) {
+            console.debug("createImageBitmap probe failed; using image element fallback.", error);
+          }
+        }
+
+        const image = await loadImageElement(file);
+        const dimensions = {
+          width: image.naturalWidth || image.width,
+          height: image.naturalHeight || image.height,
+        };
+        image.cleanup();
+        if (!dimensions.width || !dimensions.height) throw new Error("Không đọc được kích thước ảnh.");
+        return dimensions;
+      }
+
+      async function createResponsiveWebp(file, width, height) {
+        let source = null;
+        let cleanup = () => {};
+
+        try {
+          if (typeof createImageBitmap === "function") {
+            source = await createImageBitmap(file, {
+              imageOrientation: "from-image",
+              resizeWidth: width,
+              resizeHeight: height,
+              resizeQuality: "high"
+            });
+            cleanup = () => source.close?.();
+          } else {
+            source = await loadImageElement(file);
+            cleanup = () => source.cleanup();
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { alpha: true });
+          if (!context) throw new Error("Trình duyệt không hỗ trợ xử lý ảnh.");
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          context.drawImage(source, 0, 0, width, height);
+
+          const blob = await new Promise(resolve => {
+            canvas.toBlob(resolve, "image/webp", RESPONSIVE_WEBP_QUALITY);
+          });
+          canvas.width = 1;
+          canvas.height = 1;
+          if (!blob || blob.type !== "image/webp") {
+            throw new Error("Trình duyệt không hỗ trợ xuất WebP responsive.");
+          }
+          return blob;
+        } finally {
+          cleanup();
+        }
+      }
+
+      function loadImageElement(file) {
+        return new Promise((resolve, reject) => {
+          const objectUrl = URL.createObjectURL(file);
+          const image = new Image();
+          image.decoding = "async";
+          image.onload = () => {
+            image.cleanup = () => URL.revokeObjectURL(objectUrl);
+            resolve(image);
+          };
+          image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("Không giải mã được ảnh."));
+          };
+          image.src = objectUrl;
+        });
+      }
+
       async function uploadItem(item) {
+        if (!item.responsiveUpload) {
+          item.status = "uploading";
+          item.message = "Đang tạo ảnh responsive…";
+          item.progress = 8;
+          render();
+          try {
+            item.responsiveUpload = await prepareResponsiveUpload(item.file);
+          } catch (error) {
+            console.warn("Responsive image generation skipped:", error);
+            item.responsiveUpload = { imageWidth: 0, imageHeight: 0, variants: [] };
+          }
+        }
+
         while (true) {
           item.status = "uploading";
           item.message = "Đang gửi file…";
@@ -1045,6 +1175,15 @@
           formData.append("file", item.file, item.file.name);
           formData.append("albumId", state.albumId);
           formData.append("capturedAt", String(item.file.lastModified || Date.now()));
+          if (item.responsiveUpload.imageWidth && item.responsiveUpload.imageHeight) {
+            formData.append("imageWidth", String(item.responsiveUpload.imageWidth));
+            formData.append("imageHeight", String(item.responsiveUpload.imageHeight));
+            const baseName = item.file.name.replace(/\.[^.]+$/, "") || "image";
+            for (const variant of item.responsiveUpload.variants) {
+              formData.append(`variant_${variant.width}`, variant.blob, `${baseName}-w${variant.width}.webp`);
+              formData.append(`variantHeight_${variant.width}`, String(variant.height));
+            }
+          }
 
           try {
             item.progress = 45;
@@ -1087,7 +1226,14 @@
 
             item.url = new URL(src, window.location.origin).href;
             item.status = "success";
-            item.message = result?.duplicate ? "Ảnh đã tồn tại – không tải trùng" : "Tải lên thành công";
+            const responsiveCount = Array.isArray(result?.responsiveWidths)
+              ? result.responsiveWidths.length
+              : item.responsiveUpload.variants.length;
+            item.message = result?.duplicate
+              ? "Ảnh đã tồn tại – không tải trùng"
+              : responsiveCount > 0
+                ? `Tải lên thành công · ${responsiveCount} size responsive`
+                : "Tải lên thành công · giữ nguyên size gốc";
             item.progress = 100;
             render();
             return true;

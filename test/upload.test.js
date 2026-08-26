@@ -60,7 +60,13 @@ describe('upload function', function () {
     }));
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(JSON.parse(await res.text()), [{ src: '/file/large-id.png' }]);
+    assert.deepStrictEqual(JSON.parse(await res.text()), [{
+      src: '/file/large-id.png',
+      duplicate: false,
+      storage: 'telegram',
+      telegramBackup: true,
+      responsiveWidths: [],
+    }]);
     assert.strictEqual(fetchMock.calls.length, 1);
 
     const stored = img_url.snapshot('large-id.png');
@@ -104,7 +110,13 @@ describe('upload function', function () {
     }));
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(JSON.parse(await res.text()), [{ src: '/file/doc-id.webp' }]);
+    assert.deepStrictEqual(JSON.parse(await res.text()), [{
+      src: '/file/doc-id.webp',
+      duplicate: false,
+      storage: 'telegram',
+      telegramBackup: true,
+      responsiveWidths: [],
+    }]);
     assert.strictEqual(fetchMock.calls.length, 2);
   });
 
@@ -134,7 +146,13 @@ describe('upload function', function () {
     }));
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(JSON.parse(await res.text()), [{ src: '/file/doc-id.txt' }]);
+    assert.deepStrictEqual(JSON.parse(await res.text()), [{
+      src: '/file/doc-id.txt',
+      duplicate: false,
+      storage: 'telegram',
+      telegramBackup: true,
+      responsiveWidths: [],
+    }]);
   });
 
   it('returns a JSON error when the upload form has no file field', async function () {
@@ -153,8 +171,8 @@ describe('upload function', function () {
       },
     }));
 
-    assert.strictEqual(res.status, 500);
-    assert.deepStrictEqual(JSON.parse(await res.text()), { error: 'No file uploaded' });
+    assert.strictEqual(res.status, 400);
+    assert.deepStrictEqual(JSON.parse(await res.text()), { error: 'Không có file hợp lệ.' });
   });
 
   it('requires basic auth when upload credentials are configured', async function () {
@@ -227,9 +245,14 @@ describe('upload function', function () {
     }));
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(JSON.parse(await res.text()), [{ src: '/file/doc-id.txt' }]);
-    assert.strictEqual(img_url.operations.put.length, 1);
-    assert.strictEqual(img_url.operations.put[0].key, 'doc-id.txt');
+    assert.deepStrictEqual(JSON.parse(await res.text()), [{
+      src: '/file/doc-id.txt',
+      duplicate: false,
+      storage: 'telegram',
+      telegramBackup: true,
+      responsiveWidths: [],
+    }]);
+    assert.ok(img_url.operations.put.some(operation => operation.key === 'doc-id.txt'));
   });
 
   it('returns a short link and stores the mapping when short URLs are enabled', async function () {
