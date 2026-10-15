@@ -5,6 +5,7 @@
  */
 
 const COOKIE_NAME = 'dfvn_ui_session';
+const CSRF_COOKIE_NAME = '__Host-dfvn_login_csrf';
 const SESSION_SECONDS = 8 * 60 * 60;
 const encoder = new TextEncoder();
 
@@ -58,9 +59,13 @@ export async function onRequest(context) {
   }
 
   const session = await readSession(request, env);
+
+  // Behave like an image host: visitors opening the subdomain root go to
+  // dafont.vn. A signed-in owner can still use the upload interface here.
   if (!session && (path === '/' || path === '/index.html')) {
-  return redirectTo('https://dafont.vn/');
+    return redirectTo('https://dafont.vn/');
   }
+
   const adminPage = /^\/admin(?:\.html)?\/?$/i.test(path);
   if (!session || (adminPage && session.role !== 'admin')) {
     const destination = adminPage ? '/admin.html' : '/';
@@ -75,7 +80,11 @@ export async function onRequest(context) {
 }
 
 async function handleLogin(request, env) {
-  if (!sameOrigin(request)) return new Response('Forbidden', { status: 403 });
+  // Reject explicit cross-site POSTs, independently of host rewriting by Pages.
+  // Origin alone is not reliable when requests are routed through a custom domain.
+  if (request.headers.get('Sec-Fetch-Site') === 'cross-site') {
+    return new Response('Forbidden', { status: 403 });
+  }
   if (!isSecretConfigured(env)) return new Response('Missing login secret.', { status: 503 });
 
   const contentLength = Number(request.headers.get('content-length') || '0');
@@ -89,6 +98,13 @@ async function handleLogin(request, env) {
     form = await request.formData();
   } catch {
     return loginPage('Dữ liệu đăng nhập không hợp lệ.', '/', 400);
+  }
+
+  // Double-submit CSRF cookie: the unpredictable value in the form must match
+  // a host-only Secure, HttpOnly, SameSite=Strict cookie set when rendering it.
+  // Unlike comparing Origin to request.url, this works behind Cloudflare Pages.
+  if (!validLoginCsrf(request, form.get('csrf'))) {
+    return loginPage('Phiên đăng nhập đã hết hạn. Vui lòng thử lại.', '/', 403);
   }
 
   const username = String(form.get('username') || '');
@@ -117,7 +133,17 @@ async function handleLogin(request, env) {
 
   const token = await issueSession(role, env);
   const cookie = `${COOKIE_NAME}=${token}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
-  return redirectTo(next, cookie, 303);
+  const response = redirectTo(next, cookie, 303);
+  response.headers.append('Set-Cookie', `${CSRF_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`);
+  return response;
+}
+
+function validLoginCsrf(request, value) {
+  const cookieHeader = request.headers.get('Cookie') || '';
+  const entry = cookieHeader.split(';').map(part => part.trim()).find(part => part.startsWith(`${CSRF_COOKIE_NAME}=`));
+  if (!entry || typeof value !== 'string') return false;
+  const cookieToken = entry.slice(CSRF_COOKIE_NAME.length + 1);
+  return /^[a-f0-9]{32}$/.test(cookieToken) && value === cookieToken;
 }
 
 function safeDestination(input) {
@@ -125,8 +151,13 @@ function safeDestination(input) {
 }
 
 function sameOrigin(request) {
+  // Used for logout only. Cloudflare may rewrite the internal request URL.
+  if (request.headers.get('Sec-Fetch-Site') === 'cross-site') return false;
   const origin = request.headers.get('Origin');
-  return origin === new URL(request.url).origin;
+  if (origin) {
+    return [new URL(request.url).origin, 'https://img.dafont.vn', 'https://dfvn-image.pages.dev'].includes(origin);
+  }
+  return request.headers.get('Sec-Fetch-Site') === 'same-origin';
 }
 
 function isSecretConfigured(env) {
@@ -195,6 +226,7 @@ function loginPage(error, destination, status = 200) {
   const message = error ? `<p class="error" role="alert">${error}</p>` : '';
   const admin = destination === '/admin.html';
   const heading = admin ? 'Đăng nhập quản trị' : 'Đăng nhập DFVN Image';
+  const csrf = crypto.randomUUID().replace(/-/g, '');
   const html = `<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${heading} · DFVN Image</title><meta name="robots" content="noindex,nofollow">
@@ -216,6 +248,7 @@ small{display:block;text-align:center;margin-top:20px;color:#8c8580}
 <h1>${heading}</h1><p>Kho lưu trữ ảnh riêng. Vui lòng đăng nhập để tiếp tục.</p>${message}
 <form method="post" action="/private-login" autocomplete="on">
 <input type="hidden" name="next" value="${destination}">
+<input type="hidden" name="csrf" value="${csrf}">
 <label for="username">Tên đăng nhập</label><input id="username" name="username" autocomplete="username" maxlength="128" required autofocus>
 <label for="password">Mật khẩu</label><input id="password" type="password" name="password" autocomplete="current-password" required>
 <button type="submit">Đăng nhập</button></form><small>DFVN Image · Private Storage</small>
@@ -224,6 +257,7 @@ small{display:block;text-align:center;margin-top:20px;color:#8c8580}
     status,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
+      'Set-Cookie': `${CSRF_COOKIE_NAME}=${csrf}; Path=/; Max-Age=900; HttpOnly; Secure; SameSite=Strict`,
       'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow',
       'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
