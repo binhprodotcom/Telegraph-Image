@@ -58,6 +58,9 @@ export async function onRequest(context) {
   }
 
   const session = await readSession(request, env);
+  if (!session && (path === '/' || path === '/index.html')) {
+  return redirectTo('https://dafont.vn/');
+  }
   const adminPage = /^\/admin(?:\.html)?\/?$/i.test(path);
   if (!session || (adminPage && session.role !== 'admin')) {
     const destination = adminPage ? '/admin.html' : '/';
