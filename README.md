@@ -2,7 +2,7 @@
 
 Free Image Hosting solution, Flickr/imgur alternative. Using Cloudflare Pages and the Telegram Bot API (Telegram Channel).
 
-Englishs|[中文](README-zh.md)
+English|[中文](README-zh.md)
 
 > [!IMPORTANT]
 >
