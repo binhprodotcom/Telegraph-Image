@@ -50,8 +50,8 @@ export async function onRequest(context) {
     if(image&&['GET','HEAD'].includes(request.method)){
       const token=bearer(request)||url.searchParams.get('ticket')||'';
       const edge=typeof caches!=='undefined'?caches.default:null;const cacheKey=new Request(url.origin+url.pathname,{method:'GET'});
-      if(!token&&edge){const cached=await edge.match(cacheKey);if(cached){const headers=new Headers(cached.headers);headers.set('Cache-Control','no-store, max-age=0');headers.set('X-DFVN-Edge-Cache','HIT');return new Response(request.method==='HEAD'?null:cached.body,{status:200,headers});}}
       const permit=await authorize({operation:'read',asset,token});if(!permit)return json({error:'Not found'},404);
+      if(permit.public===true&&!token&&edge){const cached=await edge.match(cacheKey);if(cached){const headers=new Headers(cached.headers);headers.set('Cache-Control','no-store, max-age=0');headers.set('X-DFVN-Edge-Cache','HIT');return new Response(request.method==='HEAD'?null:cached.body,{status:200,headers});}}
       const object=request.method==='HEAD'?await env.IMAGE_BUCKET.head(key):await env.IMAGE_BUCKET.get(key);if(!object)return json({error:'Not found'},404);
       const headers={...cors,'Content-Type':'image/jpeg','Content-Length':String(object.size),'Content-Disposition':'inline; filename="font-reference.jpg"','X-DFVN-Image-SHA256':object.customMetadata?.sha256||'','Referrer-Policy':'no-referrer'};
       if(permit.public===true){headers['Cache-Control']='public, max-age=60';headers['X-Robots-Tag']='index, follow, max-image-preview:large';}
